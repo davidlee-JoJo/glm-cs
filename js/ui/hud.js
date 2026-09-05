@@ -10,7 +10,7 @@ export class HUD {
       ammoMag: this.$('ammo-mag'), ammoReserve: this.$('ammo-reserve'), weaponName: this.$('weapon-name'),
       timer: this.$('timer-value'), timerLabel: this.$('timer-label'),
       scoreT: this.$('score-t'), scoreCT: this.$('score-ct'), roundLabel: this.$('round-label'),
-      killfeed: this.$('killfeed'), minimap: this.$('minimap'),
+      killfeed: this.$('killfeed'), radioFeed: this.$('radio-feed'), minimap: this.$('minimap'),
       msgCenter: this.$('msg-center'), msgTitle: this.$('msg-title'), msgSub: this.$('msg-sub'),
       interact: this.$('interact-wrap'), interactLabel: this.$('interact-label'), interactFill: this.$('interact-fill'),
       vignette: this.$('vignette'), dmgDir: this.$('dmg-dir'), blind: this.$('blind-overlay'),
@@ -219,6 +219,16 @@ export class HUD {
     while (this.el.killfeed.children.length > 5) this.el.killfeed.lastChild.remove();
     setTimeout(() => { div.style.opacity = '0'; div.style.transition = 'opacity 0.5s'; }, 3600);
     setTimeout(() => div.remove(), 4200);
+  }
+
+  radioFeed(msg, team) {
+    const div = document.createElement('div');
+    div.className = 'radio-msg' + (team === 'T' ? ' t' : '');
+    div.textContent = msg;
+    this.el.radioFeed.appendChild(div);
+    while (this.el.radioFeed.children.length > 4) this.el.radioFeed.firstChild.remove();
+    setTimeout(() => { div.style.opacity = '0'; }, 3200);
+    setTimeout(() => div.remove(), 3900);
   }
 
   banner(title, sub, cls = '', dur = 3) {

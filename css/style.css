@@ -133,3 +133,7 @@ button { font-family: inherit; }
 .buy-item .price { color: #9ee493; font-family: Consolas, monospace; }
 .buy-item.owned { border-color: #4a7; }
 .menu-tip { margin-top: 12px; text-align: center; font-size: 11px; opacity: 0.5; }
+
+#radio-feed { position: absolute; left: 16px; bottom: 104px; display: flex; flex-direction: column; gap: 4px; pointer-events: none; max-width: 320px; }
+.radio-msg { background: rgba(10,14,20,0.78); border-left: 3px solid #6ea8ff; padding: 3px 10px; font-size: 13px; color: #cfd8e3; border-radius: 0 3px 3px 0; transition: opacity 0.6s; }
+.radio-msg.t { border-left-color: #e8b45a; }

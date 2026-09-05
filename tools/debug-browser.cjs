@@ -348,6 +348,47 @@ const puppeteer = require('puppeteer-core');
   if (!survOk) fail = true;
   console.log(`[${survOk ? 'OK' : 'FAIL'}] 生存模式: 首波=${surv.wave1Bots}敵 起始金=${surv.playerMoney} 第2波=${surv.wave2}(${surv.wave2Bots}敵) 隊友重生=${surv.teammateAlive} 難度遞增=${surv.waveDiffHarder} 陣亡終局=${surv.endedOnDeath}`);
 
+  const b5 = await page.evaluate(async () => {
+    const g = window.__glmcs_game;
+    g.startMatch({ mode: 'bomb', difficulty: 'normal', ctBots: 2, tBots: 2, map: 'dust', sens: 1 });
+    g.debug.god = true;
+    const r = {};
+    const ct = g.bots.find((b) => b.team === 'CT');
+    const t = g.bots.find((b) => b.team === 'T');
+    const center = g.map.patrol[4] || g.map.patrol[0];
+    ct.body.pos.set(center.x - 9, 0.95, center.z);
+    t.body.pos.set(center.x + 9, 0.95, center.z);
+    ct.yaw = Math.atan2(-(t.body.pos.x - ct.body.pos.x), -(t.body.pos.z - ct.body.pos.z));
+    ct.targetYaw = ct.yaw;
+    ct.radioCd = 0;
+    const t0 = performance.now();
+    while (performance.now() - t0 < 5000 && !(ct.state === 'engage' && ct.crouching)) {
+      await new Promise((res) => setTimeout(res, 150));
+    }
+    r.engage = ct.state === 'engage';
+    r.crouch = ct.crouching;
+    r.radioSpot = [...document.getElementById('radio-feed').children].some((d) => d.textContent.includes('發現敵人'));
+    for (let i = 0; i < 6; i++) g.hud.radioFeed('訊息' + i, 'CT');
+    r.feedCap = document.getElementById('radio-feed').children.length <= 4;
+    const ct2 = g.bots.filter((b) => b.team === 'CT' && b.alive && b !== ct)[0] || ct;
+    ct2._campRolled = false;
+    g.bomb.state = 'planted';
+    g.bomb.pos.copy(g.map.siteA.center);
+    ct2._pickPatrolGoal();
+    r.campRolled = ct2._campRolled && typeof ct2.camp === 'boolean';
+    ct2.camp = true;
+    ct2.body.pos.set(g.bomb.pos.x + 6, 0.95, g.bomb.pos.z + 6);
+    ct2.state = 'patrol';
+    ct2.idleT = 0;
+    const t1 = performance.now();
+    while (performance.now() - t1 < 4000 && ct2.camp) await new Promise((res) => setTimeout(res, 100));
+    r.campConsumed = !ct2.camp;
+    return r;
+  });
+  const b5Ok = b5.engage && b5.crouch && b5.radioSpot && b5.feedCap && b5.campRolled && b5.campConsumed;
+  if (!b5Ok) fail = true;
+  console.log(`[${b5Ok ? 'OK' : 'FAIL'}] 無線電+蹲伏+埋伏: 交戰=${b5.engage} 遠距蹲射=${b5.crouch} 廣播=${b5.radioSpot} 訊息上限=${b5.feedCap} 埋伏骰=${b5.campRolled} 埋伏執行=${b5.campConsumed}`);
+
   console.log(`頁面錯誤: ${errors.length ? errors.join(' | ') : '無'}`);
   if (errors.length) fail = true;
   console.log(fail ? 'E2E FAIL' : 'E2E ALL PASS');

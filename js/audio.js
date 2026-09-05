@@ -110,6 +110,10 @@ export class AudioSys {
   plantBeep() { this._tone(1650, 0.07, { gain: 0.25, type: 'sine' }); }
   bombBeep(dist = 0) { this._tone(1900, 0.06, { gain: 0.4, type: 'sine', dist }); }
   defuseTick() { this._tone(1000, 0.03, { gain: 0.15 }); }
+  radioBeep() {
+    this._tone(1750, 0.05, { gain: 0.12, type: 'sine' });
+    setTimeout(() => this._tone(1350, 0.04, { gain: 0.1, type: 'sine' }), 70);
+  }
 
   explosion(dist = 0) {
     this._noise(0.9, { freq: 380, gain: 1.3, dist });

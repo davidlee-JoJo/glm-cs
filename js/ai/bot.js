@@ -107,6 +107,10 @@ export class Bot {
     this.plantT = 0;
     this.defuseT = 0;
     this.beepT = 0;
+    this.radioCd = 0;
+    this.camp = false;
+    this._campRolled = false;
+    this._blindReported = false;
 
     this.legPhase = 0;
     this.deathT = -1;
@@ -153,6 +157,10 @@ export class Bot {
     }
     this.blindT = 0;
     this.nadeCd = 4 + Math.random() * 6;
+    this.radioCd = 2 + Math.random() * 3;
+    this.camp = false;
+    this._campRolled = false;
+    this._blindReported = false;
     for (const inst of [this.loadout.primary, this.loadout.secondary]) if (inst) inst.refill();
     this.cur = this.loadout.primary || this.loadout.secondary;
     this.yaw = Math.atan2(-(0 - this.body.pos.x), -(0 - this.body.pos.z));
@@ -179,6 +187,14 @@ export class Bot {
     }
   }
 
+  _radio(msg) {
+    const game = this.game;
+    if (this.radioCd > 0 || !game.player || this.team !== game.player.team) return;
+    this.radioCd = 6 + Math.random() * 6;
+    game.audio.radioBeep();
+    game.hud.radioFeed(`${this.name}: ${msg}`, this.team);
+  }
+
   _pickPatrolGoal() {
     const game = this.game, map = game.map;
     if (game.config.mode === 'bomb' && game.bomb) {
@@ -190,11 +206,16 @@ export class Bot {
         }
         if (bomb.state === 'dropped') { this.setGoal(bomb.pos); return; }
         if (bomb.state === 'planted') {
+          if (!this._campRolled) { this.camp = Math.random() < 0.3; this._campRolled = true; }
           this.setGoal(map.randomPointNear(bomb.pos, 9));
           return;
         }
       } else {
-        if (bomb.state === 'planted') { this.setGoal(bomb.pos.clone()); return; }
+        if (bomb.state === 'planted') {
+          if (!this._campRolled) { this.camp = Math.random() < 0.35; this._campRolled = true; }
+          this.setGoal(bomb.pos.clone());
+          return;
+        }
         if (bomb.state === 'carried' || bomb.state === 'dropped') {
           const site = Math.random() < 0.5 ? map.siteA : map.siteB;
           if (!this.goal || Math.random() < 0.02) this.setGoal(site.center);
@@ -256,6 +277,7 @@ export class Bot {
         this.target = best;
         this.reactionT = this.diff.reaction * (0.7 + Math.random() * 0.6) * (bestD > 30 ? 1.4 : 1);
         this.seeT = 0;
+        this._radio(`發現敵人 — ${best.name}！`);
       }
       this.seeT += dt;
       this.reactionT -= dt;
@@ -280,12 +302,16 @@ export class Bot {
     this.stateT = 0;
     if (s === 'engage') this.strafeT = 0;
     if (s === 'seek') this.path = null;
+    if (s === 'plant') this._radio('正在設置炸彈！');
+    if (s === 'defuse') this._radio('正在拆除炸彈，掩護我！');
   }
 
   _fsm(dt) {
     const game = this.game;
     this.stateT += dt;
     this.moveWish = null;
+    if (this.state !== 'engage') this.crouching = false;
+    if (this.radioCd > 0) this.radioCd -= dt;
 
     switch (this.state) {
       case 'patrol': {
@@ -297,6 +323,13 @@ export class Bot {
           }
           if (bomb.state === 'planted' && this.team === 'CT' && this.body.pos.distanceTo(bomb.pos) < 1.6) {
             this._enter('defuse');
+            break;
+          }
+          if (this.camp && bomb.state === 'planted' && this.body.pos.distanceTo(bomb.pos) < 11) {
+            this.camp = false;
+            this.idleT = 2.5 + Math.random() * 3.5;
+            const dx = bomb.pos.x - this.body.pos.x, dz = bomb.pos.z - this.body.pos.z;
+            this.targetYaw = Math.atan2(-dx, -dz);
             break;
           }
         }
@@ -380,7 +413,8 @@ export class Bot {
     const ideal = this.cur.def.key === 'awp' ? 22 : 10;
     if (dist > ideal * 1.4) adv = 1;
     else if (dist < ideal * 0.5) adv = -1;
-    const spd = this.diff.speed * (whileReloading ? 1 : 0.85);
+    this.crouching = dist > 13 && b.onGround && !whileReloading;
+    const spd = this.diff.speed * (whileReloading ? 1 : this.crouching ? 0.4 : 0.85);
     this.moveWish = { x: perp.x + toT.x * adv, z: perp.z + toT.z * adv, speed: spd };
     const l = Math.hypot(this.moveWish.x, this.moveWish.z);
     if (l > 0) { this.moveWish.x /= l; this.moveWish.z /= l; }
@@ -511,7 +545,13 @@ export class Bot {
       return;
     }
     updateWeapon(this.cur, dt);
-    if (this.blindT > 0) this.blindT = Math.max(0, this.blindT - dt);
+    if (this.blindT > 0) {
+      this.blindT = Math.max(0, this.blindT - dt);
+      if (this.blindT > 1.5 && !this._blindReported) {
+        this._blindReported = true;
+        this._radio('我看不到 — 被閃了！');
+      }
+    } else this._blindReported = false;
     this._perceive(dt);
     this._fsm(dt);
     this._applyMovement(dt);
@@ -562,6 +602,9 @@ export class Bot {
     this.deathT = 0;
     this.body.blockBullets = false;
     if (this.game.config.mode === 'dm') this.respawnT = 3;
+    if (this.game.player && this.team === this.game.player.team) {
+      this.game.hud.radioFeed(`${this.name} 陣亡！`, this.team);
+    }
     this.game.physics.removeBody(this.body);
   }
 
