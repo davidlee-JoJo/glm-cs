@@ -7,7 +7,7 @@ for (const [key, def] of Object.entries(MAPS)) {
   const L = def.layout;
   const rows = L.length, cols = L[0].length;
 
-  if (rows !== 32 && rows !== 48) errs.push(`rows=${rows} (應為 32 或 48)`);
+  if (rows !== 32 && rows !== 48 && rows !== 64) errs.push(`rows=${rows} (應為 32/48/64)`);
   L.forEach((r, i) => { if (r.length !== cols) errs.push(`r${i} 長度 ${r.length} ≠ ${cols}`); });
   L.forEach((r, i) => {
     for (const ch of r) if (!WALKABLE.includes(ch) && !'#XHxP34'.includes(ch))

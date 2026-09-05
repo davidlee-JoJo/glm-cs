@@ -8,7 +8,8 @@ export class Menu {
     this.config = {
       mode: 'elim',
       difficulty: 'normal',
-      botsPerSide: 3,
+      ctBots: 2,
+      tBots: 3,
       map: 'dust',
       sens: parseFloat(localStorage.getItem('glmcs_sens') || '1')
     };
@@ -31,7 +32,8 @@ export class Menu {
     this._bindOptRow('mode-row', (v) => { this.config.mode = v; });
     this._bindOptGroup('map', (v) => { this.config.map = v; });
     this._bindOptRow('diff-row', (v) => { this.config.difficulty = v; });
-    this._bindOptRow('bots-row', (v) => { this.config.botsPerSide = parseInt(v); });
+    this._bindOptRow('mates-row', (v) => { this.config.ctBots = parseInt(v); });
+    this._bindOptRow('enemies-row', (v) => { this.config.tBots = parseInt(v); });
     this.el.sensSlider.value = this.config.sens;
     this.el.sensVal.textContent = this.config.sens.toFixed(1);
     this.el.sensSlider.addEventListener('input', () => {

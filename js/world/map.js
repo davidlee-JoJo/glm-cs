@@ -190,7 +190,7 @@ export class GameMap {
     let found = null;
     let guard = 0;
 
-    while (open.length && guard++ < 12000) {
+    while (open.length && guard++ < 40000) {
       let bi = 0;
       for (let i = 1; i < open.length; i++) if (open[i].f < open[bi].f) bi = i;
       const cur = open.splice(bi, 1)[0];
@@ -225,7 +225,7 @@ export class GameMap {
     let i = 0;
     while (i < pts.length) {
       let far = i;
-      for (let j = pts.length - 1; j > i; j--) {
+      for (let j = Math.min(i + 14, pts.length - 1); j > i; j--) {
         const a = new THREE.Vector3(cur.x, 0.9, cur.z);
         const b = new THREE.Vector3(pts[j].x, 0.9, pts[j].z);
         if (this.physics.losClear(a, b)) { far = j; break; }

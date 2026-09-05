@@ -22,8 +22,8 @@ const DIFFS = {
   hard: { name: '困難', reaction: 0.22, aimErr: 0.04, burst: 7, speed: 4.7 }
 };
 
-const T_NAMES = ['毒蛇', '灰狼', '禿鷹', '毒蠍', '夜鶯'];
-const CT_NAMES = ['幽靈', '獵犬', '雷霆', '刺客', '銀翼'];
+const T_NAMES = ['毒蛇', '灰狼', '禿鷹', '毒蠍', '夜鶯', '孤星', '赤狐', '黑豹'];
+const CT_NAMES = ['幽靈', '獵犬', '雷霆', '刺客', '銀翼', '哨兵', '霜狼', '暴雨'];
 
 class FX {
   constructor(game) {
@@ -203,7 +203,7 @@ export class Game {
     this.scoreCT = 0;
     this.roundNum = 0;
     this.lossStreak = { T: 0, CT: 0 };
-    this.config = { mode: 'elim', difficulty: 'normal', botsPerSide: 3, map: 'dust', diffName: '普通', diff: DIFFS.normal };
+    this.config = { mode: 'elim', difficulty: 'normal', ctBots: 2, tBots: 3, map: 'dust', diffName: '普通', diff: DIFFS.normal };
     this.defuseT = 0;
 
     this.acc = 0;
@@ -301,7 +301,8 @@ export class Game {
     this.config = {
       mode: cfg.mode,
       difficulty: cfg.difficulty,
-      botsPerSide: cfg.botsPerSide,
+      ctBots: cfg.ctBots,
+      tBots: cfg.tBots,
       map: cfg.map,
       diff: DIFFS[cfg.difficulty],
       diffName: DIFFS[cfg.difficulty].name
@@ -320,13 +321,13 @@ export class Game {
       this.players = [this.player];
     } else this.player.resetForRound(this.map.spawnCT[0], false);
 
-    const perTeam = this.config.botsPerSide;
-    const ctBots = perTeam - 1;
-    for (let i = 0; i < ctBots; i++) {
-      this.bots.push(new Bot(this, 'CT', CT_NAMES[i], this.config.diff));
+    const ctNames = CT_NAMES.slice(0, this.config.ctBots);
+    const tNames = T_NAMES.slice(0, this.config.tBots);
+    for (let i = 0; i < this.config.ctBots; i++) {
+      this.bots.push(new Bot(this, 'CT', ctNames[i], this.config.diff));
     }
-    for (let i = 0; i < perTeam; i++) {
-      this.bots.push(new Bot(this, 'T', T_NAMES[i], this.config.diff));
+    for (let i = 0; i < this.config.tBots; i++) {
+      this.bots.push(new Bot(this, 'T', tNames[i], this.config.diff));
     }
     this.players = [this.player, ...this.bots];
 
@@ -362,9 +363,10 @@ export class Game {
     this.player.resetForRound(this.map.spawnCT[0], keep);
 
     let ti = 0, ci = 0;
+    const tSpawns = this.map.spawnT, ctSpawns = this.map.spawnCT;
     for (const bot of this.bots) {
       const wasAlive = bot.alive;
-      const spawn = bot.team === 'T' ? this.map.spawnT[ti++ % 5] : this.map.spawnCT[1 + (ci++ % 4)];
+      const spawn = bot.team === 'T' ? tSpawns[ti++ % tSpawns.length] : ctSpawns[1 + (ci++ % (ctSpawns.length - 1))];
       bot.resetForRound(spawn, wasAlive);
       this.botBuy(bot);
     }

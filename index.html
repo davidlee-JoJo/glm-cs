@@ -102,7 +102,10 @@
         <button class="opt-btn" data-v="fortress">古堡要塞</button>
         <button class="opt-btn" data-v="harbor">夜港倉庫</button>
       </div>
-      <div class="menu-tip" style="text-align:left;margin-top:6px">古堡要塞與夜港倉庫為大型地圖，含樓梯高台與室內場景</div>
+      <div class="opt-row" data-row="map" style="margin-top:6px">
+        <button class="opt-btn" data-v="city">都市巷戰（超大型）</button>
+      </div>
+      <div class="menu-tip" style="text-align:left;margin-top:6px">大型地圖含樓梯高台、室內場景與複雜巷道；都市巷戰為 128m 街區地圖</div>
     </div>
     <div class="menu-section">
       <label>AI 難度</label>
@@ -113,12 +116,27 @@
       </div>
     </div>
     <div class="menu-section">
-      <label>每隊人數（含玩家，對方全 Bot）</label>
-      <div class="opt-row" id="bots-row">
+      <label>我方隊友數（Bot 隊友）</label>
+      <div class="opt-row" id="mates-row">
+        <button class="opt-btn" data-v="0">0</button>
+        <button class="opt-btn" data-v="1">1</button>
+        <button class="opt-btn selected" data-v="2">2</button>
+        <button class="opt-btn" data-v="3">3</button>
+        <button class="opt-btn" data-v="4">4</button>
+        <button class="opt-btn" data-v="5">5</button>
+      </div>
+    </div>
+    <div class="menu-section">
+      <label>敵人數量（全 Bot）</label>
+      <div class="opt-row" id="enemies-row">
         <button class="opt-btn" data-v="1">1</button>
         <button class="opt-btn" data-v="2">2</button>
         <button class="opt-btn selected" data-v="3">3</button>
         <button class="opt-btn" data-v="4">4</button>
+        <button class="opt-btn" data-v="5">5</button>
+        <button class="opt-btn" data-v="6">6</button>
+        <button class="opt-btn" data-v="7">7</button>
+        <button class="opt-btn" data-v="8">8</button>
       </div>
     </div>
     <div class="menu-section">

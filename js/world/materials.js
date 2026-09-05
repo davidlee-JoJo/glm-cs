@@ -48,6 +48,14 @@ export const THEMES = {
     wall: '#5a6472', wallStreak: 'rgba(30,36,46,0.3)', wallBand: 'rgba(24,28,36,0.4)',
     crate: '#6b4a2e', crateLine: 'rgba(25,16,8,0.65)',
     metal: '#3d4854', concrete: '#565e6a'
+  },
+  city: {
+    sky: 0x9aa8b0, fogNear: 60, fogFar: 210,
+    light: { hemi: 1.0, sun: 1.65, sunColor: 0xe0e4da, shadow: 68 },
+    floor: '#7d8078', floorLine: 'rgba(45,48,45,0.4)', floorPatch: 'rgba(38,40,38,0.18)',
+    wall: '#a8a89a', wallStreak: 'rgba(70,70,62,0.25)', wallBand: 'rgba(60,62,55,0.3)',
+    crate: '#8a7448', crateLine: 'rgba(45,35,15,0.6)',
+    metal: '#5e686e', concrete: '#98988c'
   }
 };
 
