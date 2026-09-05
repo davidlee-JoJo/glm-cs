@@ -110,6 +110,25 @@ export class AudioSys {
     this._tone(60, 0.5, { type: 'sine', gain: 0.8, dist, slideTo: 30 });
   }
 
+  smokePop(dist = 0) {
+    this._noise(0.5, { freq: 900, gain: 0.55, dist });
+    this._tone(240, 0.35, { type: 'sine', gain: 0.22, dist, slideTo: 110 });
+  }
+
+  flashbang(dist = 0) {
+    this._noise(0.4, { type: 'highpass', freq: 4500, gain: 1.1, dist });
+    this._tone(2800, 0.5, { type: 'sine', gain: 0.35, dist, slideTo: 1300 });
+  }
+
+  fireIgnite(dist = 0) {
+    this._noise(0.8, { freq: 1200, gain: 0.55, dist });
+    this._tone(130, 0.55, { type: 'sawtooth', gain: 0.18, dist, slideTo: 65 });
+  }
+
+  fireCrackle(dist = 0) {
+    this._noise(0.12, { type: 'bandpass', freq: 1600 + Math.random() * 800, q: 1.2, gain: 0.2, dist });
+  }
+
   roundStart() {
     this._tone(440, 0.12, { type: 'sine', gain: 0.25 });
     setTimeout(() => this._tone(660, 0.15, { type: 'sine', gain: 0.25 }), 140);

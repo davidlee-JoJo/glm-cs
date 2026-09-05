@@ -1,4 +1,4 @@
-import { BUY_LIST, WEAPONS } from '../player/weapons.js';
+import { BUY_LIST, WEAPONS, NADE_BY_DEFKEY } from '../player/weapons.js';
 
 export class Menu {
   constructor(game, hooks) {
@@ -120,7 +120,7 @@ export class Menu {
       const div = document.createElement('div');
       div.className = 'buy-item';
       const owned = item.defKey === 'armor' ? p.armor >= 100 :
-        (item.slot === 'grenade' ? p.loadout.grenade && p.loadout.grenade.mag > 0 :
+        (item.slot === 'grenade' ? !!(p.loadout.grenades[NADE_BY_DEFKEY[item.defKey]]) :
           p.loadout[item.slot] && p.loadout[item.slot].key === item.defKey);
       const cant = p.money < item.price || owned;
       if (cant) div.classList.add('cant');

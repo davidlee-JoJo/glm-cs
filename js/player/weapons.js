@@ -37,9 +37,25 @@ export const WEAPONS = {
   },
   hegrenade: {
     key: 'hegrenade', name: '手榴彈', kind: 'grenade', dmg: 90, radius: 9,
-    fuse: 1.7, speedMul: 1.05, price: 300, killReward: 300
+    fuse: 1.7, speedMul: 1.05, price: 300, killReward: 300, vmColor: 0x3a4a2e
+  },
+  smoke: {
+    key: 'smoke', name: '煙霧彈', kind: 'grenade', fuse: 1.6,
+    speedMul: 1.0, price: 300, killReward: 300, vmColor: 0x6a7a72
+  },
+  flash: {
+    key: 'flash', name: '閃光彈', kind: 'grenade', fuse: 1.4,
+    speedMul: 1.08, price: 200, killReward: 300, vmColor: 0xb8bcc0
+  },
+  molotov: {
+    key: 'molotov', name: '燃燒彈', kind: 'grenade', fuse: 9,
+    speedMul: 1.0, price: 600, killReward: 300, vmColor: 0x8a4a20
   }
 };
+
+export const GRENADE_TYPES = ['he', 'smoke', 'flash', 'molotov'];
+export const NADE_BY_DEFKEY = { hegrenade: 'he', smoke: 'smoke', flash: 'flash', molotov: 'molotov' };
+export const DEF_BY_NADE = { he: 'hegrenade', smoke: 'smoke', flash: 'flash', molotov: 'molotov' };
 
 export const BUY_LIST = [
   { defKey: 'deagle', slot: 'secondary', price: 700 },
@@ -47,6 +63,9 @@ export const BUY_LIST = [
   { defKey: 'm4a4', slot: 'primary', price: 3100 },
   { defKey: 'awp', slot: 'primary', price: 4750 },
   { defKey: 'hegrenade', slot: 'grenade', price: 300 },
+  { defKey: 'smoke', slot: 'grenade', price: 300 },
+  { defKey: 'flash', slot: 'grenade', price: 200 },
+  { defKey: 'molotov', slot: 'grenade', price: 600 },
   { defKey: 'armor', slot: 'gear', price: 1000 }
 ];
 
@@ -75,8 +94,12 @@ export function makeLoadout() {
     primary: null,
     secondary: new WeaponInst('usp'),
     knife: new WeaponInst('knife'),
-    grenade: null
+    grenades: { he: null, smoke: null, flash: null, molotov: null }
   };
+}
+
+export function ownedNades(loadout) {
+  return GRENADE_TYPES.filter((t) => loadout.grenades[t]);
 }
 
 export function currentSpread(shooter, def) {

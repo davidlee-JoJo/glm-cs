@@ -22,6 +22,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0e12; f
 .hm-4 { transform: translate(4px, 8px) rotate(45deg); }
 
 #vignette { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, transparent 40%, rgba(255, 0, 0, 0.55) 100%); }
+#blind-overlay { position: absolute; inset: 0; opacity: 0; background: #ffffff; pointer-events: none; }
 #dmg-dir { position: absolute; left: 50%; top: 50%; width: 0; height: 0; opacity: 0; }
 #dmg-dir::before { content: ""; position: absolute; left: -14px; top: -86px; border-left: 14px solid transparent; border-right: 14px solid transparent; border-bottom: 22px solid rgba(255, 40, 40, 0.85); }
 

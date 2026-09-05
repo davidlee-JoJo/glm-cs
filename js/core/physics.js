@@ -64,6 +64,7 @@ export class PhysicsWorld {
   constructor() {
     this.solids = [];
     this.bodies = [];
+    this.smokes = [];
     this.projectiles = [];
     this.gravity = 20;
     this.rayCount = 0;
@@ -239,13 +240,27 @@ export class PhysicsWorld {
     return best;
   }
 
+  segSphereDist(a, b, c) {
+    const abx = b.x - a.x, aby = b.y - a.y, abz = b.z - a.z;
+    const acx = c.x - a.x, acy = c.y - a.y, acz = c.z - a.z;
+    const len2 = abx * abx + aby * aby + abz * abz;
+    let t = len2 > 0.0001 ? (acx * abx + acy * aby + acz * abz) / len2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    const px = a.x + abx * t - c.x, py = a.y + aby * t - c.y, pz = a.z + abz * t - c.z;
+    return Math.sqrt(px * px + py * py + pz * pz);
+  }
+
   losClear(a, b) {
     const dir = new THREE.Vector3().subVectors(b, a);
     const dist = dir.length();
     if (dist < 0.01) return true;
     dir.divideScalar(dist);
     const hit = this.raycast(a, dir, dist - 0.05, { bodies: false });
-    return !hit;
+    if (hit) return false;
+    for (const s of this.smokes) {
+      if (this.segSphereDist(a, b, s.pos) < s.r * 0.8) return false;
+    }
+    return true;
   }
 
   bodiesInRadius(pos, r) {

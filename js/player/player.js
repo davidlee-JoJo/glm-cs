@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Body } from '../core/physics.js';
-import { fireWeapon, startReload, updateWeapon, currentSpread } from './weapons.js';
+import { fireWeapon, startReload, updateWeapon, currentSpread, WEAPONS, GRENADE_TYPES, ownedNades } from './weapons.js';
 
 const STAND_HALF_Y = 0.9;
 const CROUCH_HALF_Y = 0.6;
@@ -57,7 +57,9 @@ function buildVM(key) {
     g.userData.muzzle = new THREE.Vector3(0, 0, -0.3);
     g.userData.base = new THREE.Vector3(0.32, -0.32, -0.45);
   } else {
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 10), greenMat());
+    const color = WEAPONS[key] && WEAPONS[key].vmColor ? WEAPONS[key].vmColor : 0x3a4a2e;
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 10),
+      new THREE.MeshLambertMaterial({ color }));
     g.add(ball);
     g.add(part(darkMetal(), 0.03, 0.05, 0.03, 0, 0.085, 0));
     g.userData.muzzle = new THREE.Vector3(0, 0.05, -0.1);
@@ -99,6 +101,8 @@ export class Player {
     this.loadout = null;
     this.cur = null;
     this.curSlot = 2;
+    this.nadeType = 'he';
+    this.blindT = 0;
     this.lastShotT = -99;
     this.vms = {};
     this.vmGroup = new THREE.Group();
@@ -110,7 +114,7 @@ export class Player {
   }
 
   _buildVMs() {
-    for (const key of ['usp', 'deagle', 'ak47', 'm4a4', 'awp', 'knife', 'hegrenade']) {
+    for (const key of ['usp', 'deagle', 'ak47', 'm4a4', 'awp', 'knife', 'hegrenade', 'smoke', 'flash', 'molotov']) {
       const vm = buildVM(key);
       vm.visible = false;
       this.vms[key] = vm;
@@ -140,25 +144,36 @@ export class Player {
         primary: null,
         secondary: new (this.game.weaponNS.WeaponInst)('usp'),
         knife: new (this.game.weaponNS.WeaponInst)('knife'),
-        grenade: null
+        grenades: { he: null, smoke: null, flash: null, molotov: null }
       };
       this.armor = 0;
+      this.nadeType = 'he';
     } else {
       for (const inst of [this.loadout.primary, this.loadout.secondary, this.loadout.knife]) {
         if (inst) { inst.refill(); }
       }
+      const owned = ownedNades(this.loadout);
+      for (const t of GRENADE_TYPES) {
+        if (this.loadout.grenades[t] && !owned.includes(t)) this.loadout.grenades[t] = null;
+      }
+      if (this.loadout.grenades[this.nadeType] == null && owned.length) this.nadeType = owned[0];
     }
     if (!this.loadout.primary) this.curSlot = 2;
     else if (this.curSlot === 4) this.curSlot = 1;
+    if (!ownedNades(this.loadout).length && this.curSlot === 4) this.curSlot = 2;
     this._equip(this.curSlot);
   }
 
   _equip(slot) {
     const l = this.loadout;
     if (slot === 1 && !l.primary) return;
-    if (slot === 4 && !l.grenade) return;
+    if (slot === 4) {
+      const owned = ownedNades(l);
+      if (!owned.length) return;
+      if (!l.grenades[this.nadeType]) this.nadeType = owned[0];
+    }
     this.curSlot = slot;
-    this.cur = slot === 1 ? l.primary : slot === 2 ? l.secondary : slot === 3 ? l.knife : l.grenade;
+    this.cur = slot === 1 ? l.primary : slot === 2 ? l.secondary : slot === 3 ? l.knife : l.grenades[this.nadeType];
     this.switchT = 0;
     this.scoped = false;
     this.burstIdx = 0;
@@ -192,6 +207,7 @@ export class Player {
     const k = Math.exp(-7 * dt);
     this.punchPitch *= k;
     this.punchYaw *= k;
+    if (this.blindT > 0) this.blindT = Math.max(0, this.blindT - dt);
     this.kickZ *= Math.exp(-11 * dt);
     this.kickRot *= Math.exp(-11 * dt);
     if (this.switchT < 1) this.switchT = Math.min(1, this.switchT + dt * 4);
@@ -310,10 +326,23 @@ export class Player {
       if (input.down('Digit1') && l.primary && this.curSlot !== 1) this._equip(1);
       if (input.down('Digit2') && this.curSlot !== 2) this._equip(2);
       if (input.down('Digit3') && this.curSlot !== 3) this._equip(3);
-      if (input.down('Digit4') && l.grenade && this.curSlot !== 4) this._equip(4);
+      if (input.down('Digit4')) {
+        if (this.curSlot !== 4) this._equip(4);
+        else {
+          const owned = ownedNades(l);
+          if (owned.length > 1) {
+            const idx = owned.indexOf(this.nadeType);
+            this.nadeType = owned[(idx + 1) % owned.length];
+            this._equip(4);
+            game.hud.hint(`切換 ${WEAPONS[this.nadeType].name}`);
+            game.hintT = 1.2;
+          }
+        }
+      }
       const wheel = input.consumeWheel();
       if (wheel !== 0) {
-        const order = [1, 2, 3, 4].filter((s) => (s === 1 && l.primary) || (s === 2) || (s === 3) || (s === 4 && l.grenade));
+        const hasNade = ownedNades(l).length > 0;
+        const order = [1, 2, 3, 4].filter((s) => (s === 1 && l.primary) || (s === 2) || (s === 3) || (s === 4 && hasNade));
         let idx = order.indexOf(this.curSlot);
         idx = (idx + (wheel > 0 ? 1 : -1) + order.length) % order.length;
         this._equip(order[idx]);
@@ -349,10 +378,15 @@ export class Player {
       this.cur.mag--;
       this.cur.cd = 0.8;
       this.swingT = 0;
-      game.throwGrenade(this, origin, dir);
+      const type = this.nadeType;
+      game.throwGrenade(this, origin, dir, type);
       if (this.cur.mag <= 0) {
-        this.loadout.grenade = null;
-        this._equip(2);
+        this.loadout.grenades[type] = null;
+        const owned = ownedNades(this.loadout);
+        if (owned.length) {
+          this.nadeType = owned[0];
+          this._equip(4);
+        } else this._equip(2);
       }
       return;
     }

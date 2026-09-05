@@ -13,7 +13,7 @@ export class HUD {
       killfeed: this.$('killfeed'), minimap: this.$('minimap'),
       msgCenter: this.$('msg-center'), msgTitle: this.$('msg-title'), msgSub: this.$('msg-sub'),
       interact: this.$('interact-wrap'), interactLabel: this.$('interact-label'), interactFill: this.$('interact-fill'),
-      vignette: this.$('vignette'), dmgDir: this.$('dmg-dir'),
+      vignette: this.$('vignette'), dmgDir: this.$('dmg-dir'), blind: this.$('blind-overlay'),
       scope: this.$('scope-overlay'),
       bombHud: this.$('bomb-hud'), hint: this.$('hint-bar'), spectate: this.$('spectate-note'),
       scoreboard: this.$('scoreboard'), sbRows: this.$('sb-rows')
@@ -61,6 +61,7 @@ export class HUD {
     if (this.vigT > 0) { this.vigT -= dt; this.el.vignette.style.opacity = Math.min(0.9, this.vigT * 2); }
     else this.el.vignette.style.opacity = p.alive && p.health <= 30 ? 0.35 : 0;
     if (this.dirT > 0) { this.dirT -= dt; this.el.dmgDir.style.opacity = Math.min(1, this.dirT * 1.5); }
+    this.el.blind.style.opacity = p.alive && p.blindT > 0 ? Math.min(1, p.blindT / 1.2) : 0;
     if (this.bannerT > 0) {
       this.bannerT -= dt;
       if (this.bannerT <= 0) this.el.msgCenter.classList.add('hidden');

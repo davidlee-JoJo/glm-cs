@@ -74,11 +74,13 @@ export class Bot {
     this.kills = 0;
     this.deaths = 0;
     this.alive = true;
-    this.loadout = { primary: null, secondary: new WeaponInst('usp'), knife: new WeaponInst('knife'), grenade: null };
+    this.loadout = { primary: null, secondary: new WeaponInst('usp'), knife: new WeaponInst('knife'), grenades: { he: null, smoke: null, flash: null, molotov: null } };
     this.cur = this.loadout.secondary;
     this.yaw = 0;
     this.targetYaw = 0;
     this.crouching = false;
+    this.blindT = 0;
+    this.nadeCd = 5;
     this.lastShotT = -99;
 
     this.state = 'patrol';
@@ -141,10 +143,14 @@ export class Bot {
     this.model.rotation.set(0, 0, 0);
     this.body.blockBullets = true;
     if (!keepGuns || !this.loadout.primary) {
-      this.loadout = { primary: null, secondary: new WeaponInst('usp'), knife: new WeaponInst('knife'), grenade: null };
+      this.loadout = { primary: null, secondary: new WeaponInst('usp'), knife: new WeaponInst('knife'), grenades: { he: null, smoke: null, flash: null, molotov: null } };
       this.armor = 0;
       this.plantSite = Math.random() < 0.5 ? 'A' : 'B';
+    } else {
+      for (const t of ['he', 'smoke', 'flash', 'molotov']) this.loadout.grenades[t] = null;
     }
+    this.blindT = 0;
+    this.nadeCd = 4 + Math.random() * 6;
     for (const inst of [this.loadout.primary, this.loadout.secondary]) if (inst) inst.refill();
     this.cur = this.loadout.primary || this.loadout.secondary;
     this.yaw = Math.atan2(-(0 - this.body.pos.x), -(0 - this.body.pos.z));
@@ -219,6 +225,14 @@ export class Bot {
 
   _perceive(dt) {
     const game = this.game;
+    if (this.blindT > 0) {
+      if (this.target && game.time - this.lastSeenT > 0.8) {
+        this.alertPos = this.lastSeenPos ? this.lastSeenPos.clone() : null;
+        this.target = null;
+        if (this.state === 'engage') this._enter('seek');
+      }
+      return;
+    }
     let best = null, bestD = 1e9;
     const myEye = this.eyePos();
     const facing = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
@@ -295,6 +309,7 @@ export class Bot {
         break;
       }
       case 'seek': {
+        this._maybeNade(dt);
         if (this.alertPos) {
           this.setGoal(this.alertPos);
           const arrived = this._followPath(dt, this.diff.speed * 1.05);
@@ -307,6 +322,7 @@ export class Bot {
         if (!t || !t.alive) { this.target = null; this._enter(this.alertPos ? 'seek' : 'patrol'); break; }
         if (this.cur.mag <= 0 && !this.cur.reloading) { startReload(this.cur); }
         if (this.cur.reloading) { this._combatMove(dt, true); break; }
+        this._maybeNade(dt);
         this._combatAim(dt);
         this._combatMove(dt, false);
         this._combatFire(dt);
@@ -396,6 +412,57 @@ export class Bot {
     }
   }
 
+  _maybeNade(dt) {
+    const game = this.game;
+    this.nadeCd -= dt;
+    if (this.nadeCd > 0 || this.blindT > 0) return;
+    const g = this.loadout.grenades;
+    if (game.config.mode === 'bomb' && game.bomb && game.bomb.state === 'planted' &&
+        this.team === 'T' && g.molotov && g.molotov.mag > 0) {
+      const d = this.body.pos.distanceTo(game.bomb.pos);
+      if (d > 7 && d < 22 && Math.random() < 0.4) {
+        this._throwAt(game.bomb.pos, 'molotov');
+        this.nadeCd = 10 + Math.random() * 8;
+        return;
+      }
+    }
+    if (this.state === 'seek' && this.alertPos && g.flash && g.flash.mag > 0) {
+      const d = this.body.pos.distanceTo(this.alertPos);
+      if (d > 6 && d < 24 && Math.random() < 0.45) {
+        this._throwAt(this.alertPos, 'flash');
+        this.nadeCd = 6 + Math.random() * 6;
+        return;
+      }
+    }
+    if (this.state === 'engage' && this.target && this.target.alive && g.he && g.he.mag > 0) {
+      const tp = this.target.body.pos;
+      const d = this.body.pos.distanceTo(tp);
+      if (d > 7 && d < 22 && Math.random() < 0.3 &&
+          game.physics.losClear(this.eyePos(), this.target.eyePos())) {
+        this._throwAt(tp, 'he');
+        this.nadeCd = 8 + Math.random() * 8;
+      }
+    }
+  }
+
+  _throwAt(targetPos, type) {
+    const game = this.game;
+    const from = this.eyePos();
+    const to = targetPos.clone();
+    to.y += 0.2;
+    const flat = new THREE.Vector3(to.x - from.x, 0, to.z - from.z);
+    const d = Math.min(24, flat.length());
+    if (d < 3) return;
+    flat.normalize();
+    const t = d / 16;
+    const dy = to.y - from.y;
+    const vy = (dy + 10 * t * t) / t;
+    const dir = new THREE.Vector3(flat.x, Math.max(-0.1, Math.min(0.72, (vy - 3.5) / 16)), flat.z).normalize();
+    game.throwGrenade(this, from, dir, type);
+    this.loadout.grenades[type].mag = 0;
+    this.loadout.grenades[type] = null;
+  }
+
   _applyMovement(dt) {
     const b = this.body;
     const w = this.moveWish;
@@ -442,6 +509,7 @@ export class Bot {
       return;
     }
     updateWeapon(this.cur, dt);
+    if (this.blindT > 0) this.blindT = Math.max(0, this.blindT - dt);
     this._perceive(dt);
     this._fsm(dt);
     this._applyMovement(dt);

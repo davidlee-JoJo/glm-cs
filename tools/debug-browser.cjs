@@ -115,6 +115,123 @@ const puppeteer = require('puppeteer-core');
   if (!climbOk) fail = true;
   console.log(`[${climbOk ? 'OK' : 'FAIL'}] 要塞樓梯攀爬: 最高 feetY=${climb} (平台 2.0)`);
 
+  const buyRes = await page.evaluate(() => {
+    const g = window.__glmcs_game;
+    g.startMatch({ mode: 'elim', difficulty: 'normal', ctBots: 1, tBots: 1, map: 'dust', sens: 1 });
+    g.player.money = 16000;
+    const r = {};
+    r.he = g.buy('hegrenade');
+    r.smoke = g.buy('smoke');
+    r.flash = g.buy('flash');
+    r.molotov = g.buy('molotov');
+    r.dupeSmoke = g.buy('smoke');
+    r.keys = Object.keys(g.player.loadout.grenades).filter((k) => g.player.loadout.grenades[k]).sort().join(',');
+    return r;
+  });
+  const buyOk = buyRes.he && buyRes.smoke && buyRes.flash && buyRes.molotov && !buyRes.dupeSmoke &&
+    buyRes.keys === 'flash,he,molotov,smoke';
+  if (!buyOk) fail = true;
+  console.log(`[${buyOk ? 'OK' : 'FAIL'}] 購買4種手雷 dupe拒絕=${!buyRes.dupeSmoke} keys=${buyRes.keys}`);
+
+  const nadeA = await page.evaluate(async () => {
+    const g = window.__glmcs_game;
+    g.startMatch({ mode: 'elim', difficulty: 'normal', ctBots: 0, tBots: 1, map: 'dust', sens: 1 });
+    g.debug.god = true;
+    const V3 = g.player.body.pos.constructor;
+    const dir = new V3(0, -0.3, -1).normalize();
+    const out = { smokes: 0, blocked: null, expired: false, blindMax: 0, fired: false, fireDmg: 0, fireClean: false };
+    const bot = g.bots[0];
+    const fp = bot.body.pos.clone(); fp.y = 0.1;
+    const hp0 = bot.health;
+    g.molotovExplode({ pos: fp, owner: null });
+    out.fired = g.fires.length === 1;
+    await new Promise((r) => setTimeout(r, 1600));
+    out.fireDmg = hp0 - bot.health;
+    g.player.blindT = 0;
+    g.throwGrenade(g.player, g.player.eyePos(), dir, 'flash');
+    const t2 = performance.now();
+    while (performance.now() - t2 < 3500) {
+      out.blindMax = Math.max(out.blindMax, g.player.blindT);
+      if (out.blindMax > 1) break;
+      await new Promise((r) => setTimeout(r, 80));
+    }
+    const eye = g.player.eyePos();
+    g.throwGrenade(g.player, eye, dir, 'smoke');
+    const t0 = performance.now();
+    while (performance.now() - t0 < 4000 && g.physics.smokes.length === 0) await new Promise((r) => setTimeout(r, 100));
+    out.smokes = g.physics.smokes.length;
+    if (g.physics.smokes.length) {
+      const s = g.physics.smokes[0];
+      const hx = s.pos.x - eye.x, hz = s.pos.z - eye.z;
+      const L = Math.hypot(hx, hz) || 1;
+      const a = new V3(s.pos.x - (hx / L) * 8, 1.2, s.pos.z - (hz / L) * 8);
+      const b = new V3(s.pos.x + (hx / L) * 8, 1.2, s.pos.z + (hz / L) * 8);
+      out.blocked = !g.physics.losClear(a, b);
+    }
+    const t3 = performance.now();
+    while (performance.now() - t3 < 16000 && (g.fires.length > 0 || g.physics.smokes.length > 0)) {
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    out.fireClean = g.fires.length === 0;
+    out.expired = g.physics.smokes.length === 0;
+    return out;
+  });
+  const nadeOk = nadeA.smokes === 1 && nadeA.blocked && nadeA.expired && nadeA.blindMax > 1 &&
+    nadeA.fired && nadeA.fireDmg > 0 && nadeA.fireClean;
+  if (!nadeOk) fail = true;
+  console.log(`[${nadeOk ? 'OK' : 'FAIL'}] 煙/閃/火: smokes=${nadeA.smokes} 遮蔽=${nadeA.blocked} 過期=${nadeA.expired} 致盲=${nadeA.blindMax.toFixed(1)}s 火區=${nadeA.fired} 燒傷=${nadeA.fireDmg} 熄滅=${nadeA.fireClean}`);
+
+  const botHe = await page.evaluate(async () => {
+    const g = window.__glmcs_game;
+    g.startMatch({ mode: 'elim', difficulty: 'normal', ctBots: 0, tBots: 1, map: 'dust', sens: 1 });
+    g.debug.god = true;
+    const bot = g.bots[0];
+    bot.loadout.grenades.he = new g.weaponNS.WeaponInst('hegrenade');
+    bot.loadout.grenades.he.mag = 1;
+    const p = g.player.body.pos;
+    bot.body.pos.set(p.x + 6, p.y, p.z + 6);
+    bot.target = g.player;
+    bot._enter('engage');
+    bot.nadeCd = 0;
+    bot.reactionT = 0;
+    const t0 = performance.now();
+    let thrown = false;
+    while (performance.now() - t0 < 8000) {
+      if (!bot.loadout.grenades.he) { thrown = true; break; }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return { thrown, alive: bot.alive };
+  });
+  const heOk = botHe.thrown;
+  if (!heOk) fail = true;
+  console.log(`[${heOk ? 'OK' : 'FAIL'}] 機器人交戰丟HE: thrown=${botHe.thrown} bot存活=${botHe.alive}`);
+
+  const botFlash = await page.evaluate(async () => {
+    const g = window.__glmcs_game;
+    g.startMatch({ mode: 'elim', difficulty: 'normal', ctBots: 1, tBots: 0, map: 'dust', sens: 1 });
+    g.debug.god = true;
+    const bot = g.bots[0];
+    bot.loadout.grenades.flash = new g.weaponNS.WeaponInst('flash');
+    bot.loadout.grenades.flash.mag = 1;
+    const p = g.player.body.pos;
+    const L = Math.hypot(p.x, p.z) || 1;
+    bot.body.pos.set(p.x - (p.x / L) * 14, p.y, p.z - (p.z / L) * 14);
+    bot._enter('seek');
+    bot.alertPos = p.clone();
+    bot.nadeCd = 0;
+    const t0 = performance.now();
+    let thrown = false, blinded = false;
+    while (performance.now() - t0 < 8000) {
+      if (!bot.loadout.grenades.flash) thrown = true;
+      if (g.player.blindT > 1) { blinded = true; break; }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return { thrown, blinded, blind: g.player.blindT.toFixed(2) };
+  });
+  const bfOk = botFlash.thrown && botFlash.blinded;
+  if (!bfOk) fail = true;
+  console.log(`[${bfOk ? 'OK' : 'FAIL'}] 機器人推進前丟閃光: thrown=${botFlash.thrown} 玩家被致盲=${botFlash.blinded} (${botFlash.blind}s)`);
+
   console.log(`頁面錯誤: ${errors.length ? errors.join(' | ') : '無'}`);
   if (errors.length) fail = true;
   console.log(fail ? 'E2E FAIL' : 'E2E ALL PASS');
