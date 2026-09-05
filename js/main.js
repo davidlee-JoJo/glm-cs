@@ -3,6 +3,7 @@ import { Engine } from './core/engine.js';
 import { PhysicsWorld, AABB } from './core/physics.js';
 import { Input } from './core/input.js';
 import { GameMap } from './world/map.js';
+import { MAPS } from './world/maps.js';
 import { Player } from './player/player.js';
 import { Bot } from './ai/bot.js';
 import { HUD } from './ui/hud.js';
@@ -165,7 +166,8 @@ export class Game {
       onLockChange: (locked) => this.onLockChange(locked)
     });
     this.audio = new AudioSys();
-    this.map = new GameMap(this.engine.scene, this.physics);
+    this.mapKey = 'dust';
+    this.map = new GameMap(this.engine.scene, this.physics, MAPS.dust);
     this.hud = new HUD(this);
     this.debug = new Debug(this);
     this.debug.buildVisuals();
@@ -201,7 +203,7 @@ export class Game {
     this.scoreCT = 0;
     this.roundNum = 0;
     this.lossStreak = { T: 0, CT: 0 };
-    this.config = { mode: 'elim', difficulty: 'normal', botsPerSide: 3, diffName: '普通', diff: DIFFS.normal };
+    this.config = { mode: 'elim', difficulty: 'normal', botsPerSide: 3, map: 'dust', diffName: '普通', diff: DIFFS.normal };
     this.defuseT = 0;
 
     this.acc = 0;
@@ -286,18 +288,28 @@ export class Game {
     return this.player ? this.player.body.pos.distanceTo(origin) : 0;
   }
 
+  rebuildMap(key) {
+    this.map.dispose();
+    this.map = new GameMap(this.engine.scene, this.physics, MAPS[key]);
+    this.mapKey = key;
+    this.hud.buildMinimapBase(this.map);
+    this.debug.buildVisuals();
+  }
+
   startMatch(cfg) {
     this.audio.init();
     this.config = {
       mode: cfg.mode,
       difficulty: cfg.difficulty,
       botsPerSide: cfg.botsPerSide,
+      map: cfg.map,
       diff: DIFFS[cfg.difficulty],
       diffName: DIFFS[cfg.difficulty].name
     };
     for (const b of this.bots) b.remove();
     this.bots = [];
     this.fx.clear();
+    if (cfg.map && cfg.map !== this.mapKey) this.rebuildMap(cfg.map);
     this.scoreT = 0;
     this.scoreCT = 0;
     this.roundNum = 0;

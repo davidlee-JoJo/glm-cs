@@ -1,5 +1,36 @@
 import * as THREE from 'three';
 
+export const THEMES = {
+  dust: {
+    sky: 0xb9c6d8, fogNear: 55, fogFar: 175,
+    floor: '#b39a68', floorLine: 'rgba(70,55,30,0.35)', floorPatch: 'rgba(60,45,25,0.15)',
+    wall: '#c9b98d', wallStreak: 'rgba(90,75,45,0.2)', wallBand: 'rgba(120,100,60,0.25)',
+    crate: '#9c7440', crateLine: 'rgba(60,40,15,0.6)',
+    metal: '#7e868c', concrete: '#9a9a92'
+  },
+  inferno: {
+    sky: 0xcfb59a, fogNear: 50, fogFar: 160,
+    floor: '#a58a66', floorLine: 'rgba(80,55,30,0.4)', floorPatch: 'rgba(70,50,28,0.18)',
+    wall: '#c9925f', wallStreak: 'rgba(120,70,35,0.22)', wallBand: 'rgba(150,85,40,0.28)',
+    crate: '#8a6238', crateLine: 'rgba(50,30,10,0.65)',
+    metal: '#6d7a70', concrete: '#b0a08c'
+  },
+  nuke: {
+    sky: 0x8fa3b3, fogNear: 45, fogFar: 150,
+    floor: '#85898d', floorLine: 'rgba(40,45,50,0.4)', floorPatch: 'rgba(50,55,60,0.2)',
+    wall: '#a9aeb4', wallStreak: 'rgba(70,75,82,0.25)', wallBand: 'rgba(90,96,104,0.3)',
+    crate: '#5f6b73', crateLine: 'rgba(25,30,35,0.6)',
+    metal: '#4e5860', concrete: '#909498'
+  },
+  snow: {
+    sky: 0xe3ecf5, fogNear: 55, fogFar: 170,
+    floor: '#e9eef5', floorLine: 'rgba(150,165,185,0.3)', floorPatch: 'rgba(190,205,225,0.4)',
+    wall: '#b6c6d6', wallStreak: 'rgba(120,140,165,0.2)', wallBand: 'rgba(140,160,185,0.3)',
+    crate: '#7a5a38', crateLine: 'rgba(45,30,15,0.6)',
+    metal: '#8b98a6', concrete: '#c3cbd5'
+  }
+};
+
 function makeTex(size, draw) {
   const c = document.createElement('canvas');
   c.width = c.height = size;
@@ -21,56 +52,58 @@ function noise(ctx, size, n, alpha) {
   }
 }
 
-export function buildMaterials() {
+export function buildMaterials(theme) {
   const floorTex = makeTex(256, (ctx, s) => {
-    ctx.fillStyle = '#b39a68';
+    ctx.fillStyle = theme.floor;
     ctx.fillRect(0, 0, s, s);
     noise(ctx, s, 900, 0.08);
-    ctx.strokeStyle = 'rgba(70,55,30,0.35)';
+    ctx.strokeStyle = theme.floorLine;
     ctx.lineWidth = 2;
     for (let i = 0; i <= 4; i++) {
       ctx.beginPath(); ctx.moveTo(i * s / 4, 0); ctx.lineTo(i * s / 4, s); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(0, i * s / 4); ctx.lineTo(s, i * s / 4); ctx.stroke();
     }
-    ctx.fillStyle = 'rgba(60,45,25,0.15)';
+    ctx.fillStyle = theme.floorPatch;
     for (let i = 0; i < 12; i++) ctx.fillRect(Math.random() * s, Math.random() * s, 20 + Math.random() * 40, 6 + Math.random() * 14);
   });
   floorTex.repeat.set(32, 32);
 
   const wallTex = makeTex(256, (ctx, s) => {
-    ctx.fillStyle = '#c9b98d';
+    ctx.fillStyle = theme.wall;
     ctx.fillRect(0, 0, s, s);
     noise(ctx, s, 700, 0.07);
-    ctx.fillStyle = 'rgba(120,100,60,0.25)';
+    ctx.fillStyle = theme.wallBand;
     ctx.fillRect(0, s * 0.72, s, 6);
-    ctx.fillStyle = 'rgba(90,75,45,0.2)';
+    ctx.fillStyle = theme.wallStreak;
     for (let i = 0; i < 8; i++) {
       const x = Math.random() * s;
       ctx.fillRect(x, 0, 2 + Math.random() * 3, s * (0.3 + Math.random() * 0.5));
     }
-    ctx.strokeStyle = 'rgba(80,65,40,0.3)';
+    ctx.strokeStyle = theme.wallStreak;
     ctx.lineWidth = 3;
     ctx.strokeRect(0, 0, s, s);
   });
 
   const crateTex = makeTex(256, (ctx, s) => {
-    ctx.fillStyle = '#9c7440';
+    ctx.fillStyle = theme.crate;
     ctx.fillRect(0, 0, s, s);
     noise(ctx, s, 500, 0.06);
-    ctx.strokeStyle = 'rgba(60,40,15,0.6)';
+    ctx.strokeStyle = theme.crateLine;
     ctx.lineWidth = 4;
     ctx.strokeRect(6, 6, s - 12, s - 12);
     ctx.lineWidth = 3;
     for (let i = 1; i < 4; i++) {
       ctx.beginPath(); ctx.moveTo(0, i * s / 4); ctx.lineTo(s, i * s / 4); ctx.stroke();
     }
-    ctx.strokeStyle = 'rgba(40,26,10,0.5)';
+    ctx.strokeStyle = theme.crateLine;
     ctx.lineWidth = 6;
+    ctx.globalAlpha = 0.8;
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(s, s); ctx.moveTo(s, 0); ctx.lineTo(0, s); ctx.stroke();
+    ctx.globalAlpha = 1;
   });
 
   const metalTex = makeTex(128, (ctx, s) => {
-    ctx.fillStyle = '#7e868c';
+    ctx.fillStyle = theme.metal;
     ctx.fillRect(0, 0, s, s);
     noise(ctx, s, 400, 0.08);
     ctx.fillStyle = 'rgba(30,35,40,0.5)';
@@ -83,7 +116,7 @@ export function buildMaterials() {
   });
 
   const concTex = makeTex(128, (ctx, s) => {
-    ctx.fillStyle = '#9a9a92';
+    ctx.fillStyle = theme.concrete;
     ctx.fillRect(0, 0, s, s);
     noise(ctx, s, 600, 0.09);
   });

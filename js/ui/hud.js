@@ -105,7 +105,7 @@ export class HUD {
     }
     this.el.scoreT.textContent = game.scoreT;
     this.el.scoreCT.textContent = game.scoreCT;
-    this.el.roundLabel.textContent = `第 ${game.roundNum} 回合 · ${game.config.mode === 'bomb' ? '炸彈攻防' : '團隊殲滅'} · ${game.config.diffName}`;
+    this.el.roundLabel.textContent = `第 ${game.roundNum} 回合 · ${game.map.def.name} · ${game.config.mode === 'bomb' ? '炸彈攻防' : '團隊殲滅'} · ${game.config.diffName}`;
 
     const spread = p.alive ? p.currentSpreadVal() : 0;
     const gap = 4 + spread * 900;

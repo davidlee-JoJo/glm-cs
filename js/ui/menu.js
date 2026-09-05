@@ -9,6 +9,7 @@ export class Menu {
       mode: 'elim',
       difficulty: 'normal',
       botsPerSide: 3,
+      map: 'dust',
       sens: parseFloat(localStorage.getItem('glmcs_sens') || '1')
     };
 
@@ -28,6 +29,7 @@ export class Menu {
     };
 
     this._bindOptRow('mode-row', (v) => { this.config.mode = v; });
+    this._bindOptGroup('map', (v) => { this.config.map = v; });
     this._bindOptRow('diff-row', (v) => { this.config.difficulty = v; });
     this._bindOptRow('bots-row', (v) => { this.config.botsPerSide = parseInt(v); });
     this.el.sensSlider.value = this.config.sens;
@@ -54,6 +56,19 @@ export class Menu {
         row.querySelectorAll('.opt-btn').forEach((b) => b.classList.remove('selected'));
         btn.classList.add('selected');
         cb(btn.dataset.v);
+      });
+    });
+  }
+
+  _bindOptGroup(name, cb) {
+    const rows = document.querySelectorAll(`.opt-row[data-row="${name}"]`);
+    rows.forEach((row) => {
+      row.querySelectorAll('.opt-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          rows.forEach((r) => r.querySelectorAll('.opt-btn').forEach((b) => b.classList.remove('selected')));
+          btn.classList.add('selected');
+          cb(btn.dataset.v);
+        });
       });
     });
   }

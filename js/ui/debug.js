@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CELL } from '../world/layout.js';
+import { CELL } from '../world/maps.js';
 
 const GRAV_STEPS = [1, 0.5, 0.15, 0];
 const TIME_STEPS = [1, 0.5, 0.25];

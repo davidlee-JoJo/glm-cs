@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { LAYOUT, CELL, WALKABLE, SPAWN_T, SPAWN_CT, SITE_A, SITE_B, PATROL_CELLS } from './layout.js';
-import { buildMaterials, boxMesh, siteDecalTex } from './materials.js';
+import { CELL, WALKABLE } from './maps.js';
+import { buildMaterials, boxMesh, siteDecalTex, THEMES } from './materials.js';
 
 const WALL_H = 4.2;
 const CRATE_H = 1.0;
@@ -8,20 +8,44 @@ const STACK_H = 2.0;
 const LOW_H = 1.1;
 
 export class GameMap {
-  constructor(scene, physics) {
+  constructor(scene, physics, def) {
     this.scene = scene;
     this.physics = physics;
-    this.cols = LAYOUT[0].length;
-    this.rows = LAYOUT.length;
-    this.mats = buildMaterials();
+    this.def = def;
+    this.theme = THEMES[def.theme];
+    this.cols = def.layout[0].length;
+    this.rows = def.layout.length;
+    this.mats = buildMaterials(this.theme);
     this.rects = [];
     this.walk = [];
+    this.meshes = [];
     this.navDirty = false;
+
+    const bg = new THREE.Color(this.theme.sky);
+    if (scene.background) scene.background.set(bg); else scene.background = bg;
+    if (scene.fog) {
+      scene.fog.color.set(bg);
+      scene.fog.near = this.theme.fogNear;
+      scene.fog.far = this.theme.fogFar;
+    }
 
     this._buildFloor();
     this._buildCells();
     this._buildNav();
     this._buildSiteDecals();
+  }
+
+  dispose() {
+    for (const m of this.meshes) this.scene.remove(m);
+    this.meshes = [];
+    this.physics.solids = [];
+    this.rects = [];
+  }
+
+  _track(mesh) {
+    this.meshes.push(mesh);
+    this.scene.add(mesh);
+    return mesh;
   }
 
   cellToWorldX(col) { return (col + 0.5 - this.cols / 2) * CELL; }
@@ -36,14 +60,14 @@ export class GameMap {
   _buildFloor() {
     const size = this.cols * CELL;
     const geo = new THREE.PlaneGeometry(size, size);
-    const floor = new THREE.Mesh(geo, this.mats.floor);
+    const floor = this._track(new THREE.Mesh(geo, this.mats.floor));
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
-    this.scene.add(floor);
     this.physics.addSolid(0, -0.25, 0, size, 0.5, size, 'floor');
   }
 
   _buildCells() {
+    const LAYOUT = this.def.layout;
     const grid = LAYOUT.map((r) => r.split(''));
     const half = CELL / 2;
 
@@ -57,7 +81,7 @@ export class GameMap {
         const x = (c + len / 2 - this.cols / 2) * CELL;
         const z = this.cellToWorldZ(r);
         const mesh = boxMesh(this.mats.wall, len * CELL, WALL_H, CELL, x, WALL_H / 2, z);
-        this.scene.add(mesh);
+        this._track(mesh);
         this.physics.addSolid(x, WALL_H / 2, z, len * CELL, WALL_H, CELL, 'wall');
         this.rects.push({ x0: x - len * half, x1: x + len * half, z0: z - half, z1: z + half });
         c = c2;
@@ -73,26 +97,27 @@ export class GameMap {
         const x = this.cellToWorldX(c), z = this.cellToWorldZ(r);
         const sz = ch === 'x' ? CELL : CELL * 0.92;
         const mesh = boxMesh(mat, sz, h, sz, x, h / 2, z);
-        this.scene.add(mesh);
+        this._track(mesh);
         this.physics.addSolid(x, h / 2, z, sz, h, sz, ch === 'x' ? 'lowwall' : 'crate');
         this.rects.push({ x0: x - sz / 2, x1: x + sz / 2, z0: z - sz / 2, z1: z + sz / 2 });
       }
     }
 
-    this.spawnT = SPAWN_T.map(([c, r]) => new THREE.Vector3(this.cellToWorldX(c), 0.95, this.cellToWorldZ(r)));
-    this.spawnCT = SPAWN_CT.map(([c, r]) => new THREE.Vector3(this.cellToWorldX(c), 0.95, this.cellToWorldZ(r)));
-    this.patrol = PATROL_CELLS.map(([c, r]) => new THREE.Vector3(this.cellToWorldX(c), 0, this.cellToWorldZ(r)));
+    this.spawnT = this.def.spawnT.map(([c, r]) => new THREE.Vector3(this.cellToWorldX(c), 0.95, this.cellToWorldZ(r)));
+    this.spawnCT = this.def.spawnCT.map(([c, r]) => new THREE.Vector3(this.cellToWorldX(c), 0.95, this.cellToWorldZ(r)));
+    this.patrol = this.def.patrol.map(([c, r]) => new THREE.Vector3(this.cellToWorldX(c), 0, this.cellToWorldZ(r)));
 
-    const aC = (SITE_A.col0 + SITE_A.col1 + 1) / 2, aR = (SITE_A.row0 + SITE_A.row1 + 1) / 2;
-    const bC = (SITE_B.col0 + SITE_B.col1 + 1) / 2, bR = (SITE_B.row0 + SITE_B.row1 + 1) / 2;
+    const SA = this.def.siteA, SB = this.def.siteB;
+    const aC = (SA.col0 + SA.col1 + 1) / 2, aR = (SA.row0 + SA.row1 + 1) / 2;
+    const bC = (SB.col0 + SB.col1 + 1) / 2, bR = (SB.row0 + SB.row1 + 1) / 2;
     this.siteA = {
-      minX: (SITE_A.col0 - this.cols / 2) * CELL, maxX: (SITE_A.col1 + 1 - this.cols / 2) * CELL,
-      minZ: (SITE_A.row0 - this.rows / 2) * CELL, maxZ: (SITE_A.row1 + 1 - this.rows / 2) * CELL,
+      minX: (SA.col0 - this.cols / 2) * CELL, maxX: (SA.col1 + 1 - this.cols / 2) * CELL,
+      minZ: (SA.row0 - this.rows / 2) * CELL, maxZ: (SA.row1 + 1 - this.rows / 2) * CELL,
       center: new THREE.Vector3(this.cellToWorldX(aC - 0.5), 0, this.cellToWorldZ(aR - 0.5))
     };
     this.siteB = {
-      minX: (SITE_B.col0 - this.cols / 2) * CELL, maxX: (SITE_B.col1 + 1 - this.cols / 2) * CELL,
-      minZ: (SITE_B.row0 - this.rows / 2) * CELL, maxZ: (SITE_B.row1 + 1 - this.rows / 2) * CELL,
+      minX: (SB.col0 - this.cols / 2) * CELL, maxX: (SB.col1 + 1 - this.cols / 2) * CELL,
+      minZ: (SB.row0 - this.rows / 2) * CELL, maxZ: (SB.row1 + 1 - this.rows / 2) * CELL,
       center: new THREE.Vector3(this.cellToWorldX(bC - 0.5), 0, this.cellToWorldZ(bR - 0.5))
     };
   }
@@ -104,7 +129,7 @@ export class GameMap {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(7, 7), mat);
       m.rotation.x = -Math.PI / 2;
       m.position.set(site.center.x, 0.02, site.center.z);
-      this.scene.add(m);
+      this._track(m);
     };
     mk(this.siteA, 'A');
     mk(this.siteB, 'B');
@@ -114,7 +139,7 @@ export class GameMap {
     this.walk = [];
     for (let r = 0; r < this.rows; r++) {
       const rowArr = [];
-      for (let c = 0; c < this.cols; c++) rowArr.push(WALKABLE.includes(LAYOUT[r][c]));
+      for (let c = 0; c < this.cols; c++) rowArr.push(WALKABLE.includes(this.def.layout[r][c]));
       this.walk.push(rowArr);
     }
   }
