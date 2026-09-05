@@ -14,42 +14,18 @@ const puppeteer = require('puppeteer-core');
     if (await page.evaluate(() => !!window.__glmcs_game)) break;
   }
 
-  await page.evaluate(() => {
+  const result = await page.evaluate(() => {
     const g = window.__glmcs_game;
-    g.startMatch({ mode: 'elim', difficulty: 'normal', botsPerSide: 1, sens: 1 });
-    g.state = 'live';
-    g.debug.god = true;
-    const p = g.player;
-    p.body.pos.set(0, 0.95, 0);
-    p.body.vel.set(0, 0, 0);
+    const out = [];
+    for (const n of [1, 2, 3, 4]) {
+      g.startMatch({ mode: 'elim', difficulty: 'normal', botsPerSide: n, sens: 1 });
+      const ct = g.players.filter((p) => p.team === 'CT').length;
+      const t = g.players.filter((p) => p.team === 'T').length;
+      const ctBots = g.bots.filter((b) => b.team === 'CT').length;
+      out.push(`botsPerSide=${n}: CT=${ct}(玩家+${ctBots}bot) T=${t} ${ct === t ? 'OK' : '*** 不相等 ***'}`);
+    }
+    return out.join('\n');
   });
-
-  const testMove = async (key, yaw, label, expect) => {
-    await page.evaluate((y) => {
-      const g = window.__glmcs_game;
-      g.player.yaw = y;
-      g.player.body.pos.set(0, 0.95, 0);
-      g.player.body.vel.set(0, 0, 0);
-    }, yaw);
-    await page.keyboard.down(key);
-    await new Promise((r) => setTimeout(r, 600));
-    const res = await page.evaluate((k) => {
-      const g = window.__glmcs_game;
-      const dx = g.player.body.pos.x, dz = g.player.body.pos.z;
-      return { dx: +dx.toFixed(2), dz: +dz.toFixed(2) };
-    }, key);
-    await page.keyboard.up(key);
-    await new Promise((r) => setTimeout(r, 100));
-    const ok = expect(res);
-    console.log(`${label}: moved (${res.dx}, ${res.dz}) ${ok ? 'PASS' : '*** FAIL ***'}`);
-  };
-
-  await testMove('KeyW', 0, 'W @ yaw=0 (面向-Z) 應往-Z', (r) => r.dz < -0.5 && Math.abs(r.dx) < 0.5);
-  await testMove('KeyS', 0, 'S @ yaw=0 (面向-Z) 應往+Z', (r) => r.dz > 0.5 && Math.abs(r.dx) < 0.5);
-  await testMove('KeyD', 0, 'D @ yaw=0 (面向-Z) 應往+X', (r) => r.dx > 0.5 && Math.abs(r.dz) < 0.5);
-  await testMove('KeyA', 0, 'A @ yaw=0 (面向-Z) 應往-X', (r) => r.dx < -0.5 && Math.abs(r.dz) < 0.5);
-  await testMove('KeyW', -Math.PI / 2, 'W @ yaw=-90° (面向+X) 應往+X', (r) => r.dx > 0.5 && Math.abs(r.dz) < 0.5);
-  await testMove('KeyW', Math.PI, 'W @ yaw=180° (面向+Z) 應往+Z', (r) => r.dz > 0.5 && Math.abs(r.dx) < 0.5);
-
+  console.log(result);
   await browser.close();
 })().catch((e) => { console.error('RUNNER FAIL:', e.message); process.exit(1); });

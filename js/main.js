@@ -308,11 +308,12 @@ export class Game {
       this.players = [this.player];
     } else this.player.resetForRound(this.map.spawnCT[0], false);
 
-    const n = this.config.botsPerSide;
-    for (let i = 0; i < n; i++) {
+    const perTeam = this.config.botsPerSide;
+    const ctBots = perTeam - 1;
+    for (let i = 0; i < ctBots; i++) {
       this.bots.push(new Bot(this, 'CT', CT_NAMES[i], this.config.diff));
     }
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < perTeam; i++) {
       this.bots.push(new Bot(this, 'T', T_NAMES[i], this.config.diff));
     }
     this.players = [this.player, ...this.bots];
