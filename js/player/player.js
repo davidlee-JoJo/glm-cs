@@ -310,6 +310,18 @@ export class Player {
       (eye ? eye.y : 1.6) + bobY + shake.y,
       (eye ? eye.z : 0) + shake.z
     );
+    if (!this.alive && game.deathCamT > 0 && game.deathCamTarget) {
+      game.deathCamT -= dt;
+      const to = new THREE.Vector3().subVectors(game.deathCamTarget, this.deathEye);
+      const ty = Math.atan2(-to.x, -to.z);
+      const tp = Math.atan2(to.y, Math.max(0.1, Math.hypot(to.x, to.z)));
+      let dy = ty - this.yaw;
+      while (dy > Math.PI) dy -= Math.PI * 2;
+      while (dy < -Math.PI) dy += Math.PI * 2;
+      const t = Math.min(1, dt * 5);
+      this.yaw += dy * t;
+      this.pitch += (tp - this.pitch) * t;
+    }
     cam.rotation.set(this.pitch + this.punchPitch, this.yaw + this.punchYaw, 0);
 
     const targetFov = this.scoped ? 22 : 90;
@@ -477,6 +489,8 @@ export class Player {
     this.deaths++;
     this.scoped = false;
     if (this.game.config.mode === 'dm') this.respawnT = 3;
+    this.game.deathCamT = attacker && attacker.body ? 2.5 : 0;
+    this.game.deathCamTarget = attacker && attacker.body ? attacker.body.pos.clone() : null;
     const eye = this.eyePos();
     this.deathEye = new THREE.Vector3(eye.x, Math.max(0.4, eye.y - 0.9), eye.z);
     this.body.blockBullets = false;

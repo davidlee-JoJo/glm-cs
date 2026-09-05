@@ -17,17 +17,22 @@ export class AudioSys {
     if (this.ctx.state === 'suspended') this.ctx.resume();
   }
 
-  _out(dist = 0, gain = 1) {
+  _out(dist = 0, gain = 1, pan = 0) {
     if (!this.ctx) return null;
     const g = this.ctx.createGain();
     const att = gain / (1 + dist * 0.085);
     g.gain.value = att;
-    g.connect(this.master);
+    if (this.ctx.createStereoPanner) {
+      const p = this.ctx.createStereoPanner();
+      p.pan.value = Math.max(-1, Math.min(1, pan));
+      g.connect(p);
+      p.connect(this.master);
+    } else g.connect(this.master);
     return g;
   }
 
   _noise(dur, opts = {}) {
-    const out = this._out(opts.dist || 0, opts.gain ?? 0.5);
+    const out = this._out(opts.dist || 0, opts.gain ?? 0.5, opts.pan || 0);
     if (!out) return;
     const ctx = this.ctx;
     const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
@@ -49,7 +54,7 @@ export class AudioSys {
   }
 
   _tone(freq, dur, opts = {}) {
-    const out = this._out(opts.dist || 0, opts.gain ?? 0.3);
+    const out = this._out(opts.dist || 0, opts.gain ?? 0.3, opts.pan || 0);
     if (!out) return;
     const ctx = this.ctx;
     const osc = ctx.createOscillator();
@@ -65,25 +70,25 @@ export class AudioSys {
     osc.stop(t + dur + 0.02);
   }
 
-  shot(kind, dist = 0) {
+  shot(kind, dist = 0, pan = 0) {
     if (!this.ctx) return;
     if (kind === 'rifle') {
-      this._noise(0.14, { freq: 2400, gain: 0.85, dist });
-      this._tone(150, 0.06, { type: 'square', gain: 0.35, dist, slideTo: 60 });
+      this._noise(0.14, { freq: 2400, gain: 0.85, dist, pan });
+      this._tone(150, 0.06, { type: 'square', gain: 0.35, dist, pan, slideTo: 60 });
     } else if (kind === 'pistol') {
-      this._noise(0.09, { freq: 3200, gain: 0.6, dist });
-      this._tone(220, 0.04, { type: 'square', gain: 0.25, dist, slideTo: 90 });
+      this._noise(0.09, { freq: 3200, gain: 0.6, dist, pan });
+      this._tone(220, 0.04, { type: 'square', gain: 0.25, dist, pan, slideTo: 90 });
     } else if (kind === 'smg') {
-      this._noise(0.07, { freq: 2800, gain: 0.45, dist });
-      this._tone(260, 0.03, { type: 'square', gain: 0.18, dist, slideTo: 110 });
+      this._noise(0.07, { freq: 2800, gain: 0.45, dist, pan });
+      this._tone(260, 0.03, { type: 'square', gain: 0.18, dist, pan, slideTo: 110 });
     } else if (kind === 'shotgun') {
-      this._noise(0.28, { freq: 1100, gain: 1.0, dist });
-      this._tone(85, 0.2, { type: 'square', gain: 0.45, dist, slideTo: 38 });
+      this._noise(0.28, { freq: 1100, gain: 1.0, dist, pan });
+      this._tone(85, 0.2, { type: 'square', gain: 0.45, dist, pan, slideTo: 38 });
     } else if (kind === 'awp') {
-      this._noise(0.3, { freq: 1500, gain: 1.0, dist });
-      this._tone(90, 0.18, { type: 'square', gain: 0.5, dist, slideTo: 40 });
+      this._noise(0.3, { freq: 1500, gain: 1.0, dist, pan });
+      this._tone(90, 0.18, { type: 'square', gain: 0.5, dist, pan, slideTo: 40 });
     } else if (kind === 'knife') {
-      this._noise(0.07, { type: 'bandpass', freq: 1400, q: 2, gain: 0.35, dist });
+      this._noise(0.07, { type: 'bandpass', freq: 1400, q: 2, gain: 0.35, dist, pan });
     }
   }
 
@@ -106,37 +111,42 @@ export class AudioSys {
     this._noise(0.12, { freq: 500, gain: 0.4 });
     this._tone(180, 0.1, { type: 'sawtooth', gain: 0.2, slideTo: 90 });
   }
-  bounce(dist = 0) { this._tone(320, 0.05, { gain: 0.2, dist, slideTo: 180 }); }
+  bounce(dist = 0, pan = 0) { this._tone(320, 0.05, { gain: 0.2, dist, pan, slideTo: 180 }); }
   plantBeep() { this._tone(1650, 0.07, { gain: 0.25, type: 'sine' }); }
-  bombBeep(dist = 0) { this._tone(1900, 0.06, { gain: 0.4, type: 'sine', dist }); }
+  bombBeep(dist = 0, pan = 0) { this._tone(1900, 0.06, { gain: 0.4, type: 'sine', dist, pan }); }
   defuseTick() { this._tone(1000, 0.03, { gain: 0.15 }); }
   radioBeep() {
     this._tone(1750, 0.05, { gain: 0.12, type: 'sine' });
     setTimeout(() => this._tone(1350, 0.04, { gain: 0.1, type: 'sine' }), 70);
   }
 
-  explosion(dist = 0) {
-    this._noise(0.9, { freq: 380, gain: 1.3, dist });
-    this._tone(60, 0.5, { type: 'sine', gain: 0.8, dist, slideTo: 30 });
+  explosion(dist = 0, pan = 0) {
+    this._noise(0.9, { freq: 380, gain: 1.3, dist, pan });
+    this._tone(60, 0.5, { type: 'sine', gain: 0.8, dist, pan, slideTo: 30 });
   }
 
-  smokePop(dist = 0) {
-    this._noise(0.5, { freq: 900, gain: 0.55, dist });
-    this._tone(240, 0.35, { type: 'sine', gain: 0.22, dist, slideTo: 110 });
+  smokePop(dist = 0, pan = 0) {
+    this._noise(0.5, { freq: 900, gain: 0.55, dist, pan });
+    this._tone(240, 0.35, { type: 'sine', gain: 0.22, dist, pan, slideTo: 110 });
   }
 
-  flashbang(dist = 0) {
-    this._noise(0.4, { type: 'highpass', freq: 4500, gain: 1.1, dist });
-    this._tone(2800, 0.5, { type: 'sine', gain: 0.35, dist, slideTo: 1300 });
+  flashbang(dist = 0, pan = 0) {
+    this._noise(0.4, { type: 'highpass', freq: 4500, gain: 1.1, dist, pan });
+    this._tone(2800, 0.5, { type: 'sine', gain: 0.35, dist, pan, slideTo: 1300 });
   }
 
-  fireIgnite(dist = 0) {
-    this._noise(0.8, { freq: 1200, gain: 0.55, dist });
-    this._tone(130, 0.55, { type: 'sawtooth', gain: 0.18, dist, slideTo: 65 });
+  fireIgnite(dist = 0, pan = 0) {
+    this._noise(0.8, { freq: 1200, gain: 0.55, dist, pan });
+    this._tone(130, 0.55, { type: 'sawtooth', gain: 0.18, dist, pan, slideTo: 65 });
   }
 
-  fireCrackle(dist = 0) {
-    this._noise(0.12, { type: 'bandpass', freq: 1600 + Math.random() * 800, q: 1.2, gain: 0.2, dist });
+  fireCrackle(dist = 0, pan = 0) {
+    this._noise(0.12, { type: 'bandpass', freq: 1600 + Math.random() * 800, q: 1.2, gain: 0.2, dist, pan });
+  }
+
+  multiKill(n = 2) {
+    const base = 620 + n * 90;
+    [1, 1.25, 1.5].forEach((m, i) => setTimeout(() => this._tone(base * m, 0.12, { type: 'sine', gain: 0.3 }), i * 90));
   }
 
   roundStart() {

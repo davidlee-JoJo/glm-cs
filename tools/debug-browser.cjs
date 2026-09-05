@@ -389,6 +389,37 @@ const puppeteer = require('puppeteer-core');
   if (!b5Ok) fail = true;
   console.log(`[${b5Ok ? 'OK' : 'FAIL'}] 無線電+蹲伏+埋伏: 交戰=${b5.engage} 遠距蹲射=${b5.crouch} 廣播=${b5.radioSpot} 訊息上限=${b5.feedCap} 埋伏骰=${b5.campRolled} 埋伏執行=${b5.campConsumed}`);
 
+  const b6 = await page.evaluate(async () => {
+    const g = window.__glmcs_game;
+    g.startMatch({ mode: 'elim', difficulty: 'normal', ctBots: 1, tBots: 3, map: 'dust', sens: 1 });
+    g.debug.god = true;
+    const r = {};
+    const V3 = g.player.body.pos.constructor;
+    const camPos = g.engine.camera.position;
+    const fwd = new V3();
+    g.engine.camera.getWorldDirection(fwd);
+    const rightV = new V3(-fwd.z, 0, fwd.x).normalize();
+    r.panRight = g.panFor(camPos.clone().addScaledVector(rightV, 6));
+    r.panLeft = g.panFor(camPos.clone().addScaledVector(rightV, -6));
+    r.panOk = r.panRight > 0.5 && r.panLeft < -0.5;
+    const ts = g.bots.filter((b) => b.team === 'T' && b.alive);
+    g.onKill(g.player, ts[0], g.weaponNS.WEAPONS.usp, false);
+    g.onKill(g.player, ts[1], g.weaponNS.WEAPONS.usp, false);
+    r.banner = document.getElementById('msg-title').textContent;
+    r.streak = g.killStreak === 2;
+    const killer = ts[2] || ts[0];
+    g.debug.god = false;
+    g.onKill(killer, g.player, g.weaponNS.WEAPONS.usp, false);
+    r.dcam = g.deathCamT > 2 && !!g.deathCamTarget;
+    const t0 = performance.now();
+    while (performance.now() - t0 < 4000 && g.deathCamT > 0) await new Promise((res) => setTimeout(res, 150));
+    r.dcamEnd = g.deathCamT <= 0;
+    return r;
+  });
+  const b6Ok = b6.panOk && b6.streak && b6.banner.includes('雙殺') && b6.dcam && b6.dcamEnd;
+  if (!b6Ok) fail = true;
+  console.log(`[${b6Ok ? 'OK' : 'FAIL'}] 音效定位+連殺+死亡鏡頭: panR=${b6.panRight.toFixed(2)} panL=${b6.panLeft.toFixed(2)} 連殺=${b6.streak}(${b6.banner}) 死亡鏡頭=${b6.dcam}→結束=${b6.dcamEnd}`);
+
   console.log(`頁面錯誤: ${errors.length ? errors.join(' | ') : '無'}`);
   if (errors.length) fail = true;
   console.log(fail ? 'E2E FAIL' : 'E2E ALL PASS');

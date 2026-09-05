@@ -170,7 +170,7 @@ export function fireWeapon(game, shooter, inst, origin, dir, opts = {}) {
 
   if (def.kind === 'melee') {
     inst.cd = def.rate;
-    game.audio.shot('knife', game.distToPlayer(origin));
+    game.audio.shot('knife', game.distToPlayer(origin), game.panFor(origin));
     const hit = game.physics.raycast(origin, dir, def.range, { skipBody: shooter.body });
     if (hit && hit.type === 'body') {
       const victim = hit.body.owner;
@@ -238,7 +238,7 @@ export function fireWeapon(game, shooter, inst, origin, dir, opts = {}) {
     }
   }
 
-  game.audio.shot(def.sound, game.distToPlayer(origin));
+  game.audio.shot(def.sound, game.distToPlayer(origin), game.panFor(origin));
   game.alertBots(origin, shooter);
   shooter.lastShotT = game.time;
   return { hit: hitAny, headshot: hsAny };

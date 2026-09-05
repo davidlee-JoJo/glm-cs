@@ -306,6 +306,10 @@ export class Game {
     this.scoreCT = 0;
     this.roundNum = 0;
     this.lossStreak = { T: 0, CT: 0 };
+    this.killStreak = 0;
+    this.lastKillT = -99;
+    this.deathCamT = 0;
+    this.deathCamTarget = null;
     this.config = { mode: 'elim', difficulty: 'normal', ctBots: 2, tBots: 3, map: 'dust', diffName: '普通', diff: DIFFS.normal };
     this.defuseT = 0;
 
@@ -403,6 +407,15 @@ export class Game {
 
   distToPlayer(origin) {
     return this.player ? this.player.body.pos.distanceTo(origin) : 0;
+  }
+
+  panFor(pos) {
+    const cam = this.engine.camera;
+    const fwd = new THREE.Vector3();
+    cam.getWorldDirection(fwd);
+    const dx = pos.x - cam.position.x, dz = pos.z - cam.position.z;
+    const L = Math.hypot(dx, dz) || 1;
+    return Math.max(-1, Math.min(1, (-fwd.z * dx + fwd.x * dz) / L));
   }
 
   rebuildMap(key) {
@@ -647,7 +660,7 @@ export class Game {
       pos: origin.clone().addScaledVector(dir, 0.5),
       vel, radius: 0.09, bounce: type === 'molotov' ? 0.15 : 0.45, fuse: def.fuse, owner, mesh, nadeType: type,
       onBounce: (p) => {
-        this.audio.bounce(this.distToPlayer(p.pos));
+        this.audio.bounce(this.distToPlayer(p.pos), this.panFor(p.pos));
         if (p.nadeType === 'molotov' && !p.exploded) {
           p.exploded = true;
           p.fuse = -1;
@@ -665,7 +678,7 @@ export class Game {
 
   heExplode(p) {
     this.fx.explosion(p.pos, false);
-    this.audio.explosion(this.distToPlayer(p.pos));
+    this.audio.explosion(this.distToPlayer(p.pos), this.panFor(p.pos));
     const def = WEAPONS.hegrenade;
     for (const { body, dist } of this.physics.bodiesInRadius(p.pos, def.radius)) {
       const v = body.owner;
@@ -679,7 +692,7 @@ export class Game {
   }
 
   smokeExplode(p) {
-    this.audio.smokePop(this.distToPlayer(p.pos));
+    this.audio.smokePop(this.distToPlayer(p.pos), this.panFor(p.pos));
     const pos = p.pos.clone();
     pos.y = Math.max(pos.y, 0.4);
     const until = this.time + 12;
@@ -688,7 +701,7 @@ export class Game {
   }
 
   flashExplode(p) {
-    this.audio.flashbang(this.distToPlayer(p.pos));
+    this.audio.flashbang(this.distToPlayer(p.pos), this.panFor(p.pos));
     this.fx.flashBurst(p.pos);
     for (const v of this.players) {
       if (!v.alive) continue;
@@ -712,7 +725,7 @@ export class Game {
   }
 
   molotovExplode(p) {
-    this.audio.fireIgnite(this.distToPlayer(p.pos));
+    this.audio.fireIgnite(this.distToPlayer(p.pos), this.panFor(p.pos));
     const pos = p.pos.clone();
     pos.y = Math.max(pos.y - 0.05, 0.05);
     const until = this.time + 6;
@@ -731,7 +744,7 @@ export class Game {
       f.tick -= dt;
       if (f.tick <= 0) {
         f.tick = 0.25;
-        this.audio.fireCrackle(this.distToPlayer(f.pos));
+        this.audio.fireCrackle(this.distToPlayer(f.pos), this.panFor(f.pos));
         for (const { body } of this.physics.bodiesInRadius(f.pos, f.r)) {
           const v = body.owner;
           if (!v || !v.alive) continue;
@@ -776,7 +789,19 @@ export class Game {
     }
     if (victim.isBot) victim.die(attacker);
     else victim.die(attacker);
-    if (attacker === this.player) this.audio.kill();
+    if (victim === this.player) this.killStreak = 0;
+    if (attacker === this.player) {
+      this.audio.kill();
+      if (this.time - this.lastKillT < 4) this.killStreak++;
+      else this.killStreak = 1;
+      this.lastKillT = this.time;
+      if (this.killStreak >= 2) {
+        const label = this.killStreak >= 5 ? '大殺特殺！！' :
+          { 2: '雙殺！', 3: '三連殺！', 4: '四連殺！' }[this.killStreak];
+        this.hud.banner(label, `${this.killStreak} 連殺`, 'win', 1.6);
+        this.audio.multiKill(this.killStreak);
+      }
+    }
     this.hud.killfeedAdd(attacker || victim, victim, def ? def.name : '?', headshot);
 
     if (this.config.mode === 'bomb' && this.bomb && this.bomb.state === 'carried' && this.bomb.carrier === victim) {
@@ -939,14 +964,14 @@ export class Game {
       const interval = Math.max(0.12, 0.2 + (bomb.timer / 40) * 0.9);
       if (bomb.beepT <= 0) {
         bomb.beepT = interval;
-        this.audio.bombBeep(this.distToPlayer(bomb.pos));
+        this.audio.bombBeep(this.distToPlayer(bomb.pos), this.panFor(bomb.pos));
         this.bombLight.material.color.setHex(Math.floor(this.time * 6) % 2 ? 0xff2222 : 0x661111);
       }
       if (bomb.timer <= 0) {
         bomb.state = 'exploded';
         this.bombMesh.visible = false;
         this.fx.explosion(bomb.pos, true);
-        this.audio.explosion(this.distToPlayer(bomb.pos));
+        this.audio.explosion(this.distToPlayer(bomb.pos), this.panFor(bomb.pos));
         for (const { body, dist } of this.physics.bodiesInRadius(bomb.pos, 26)) {
           const v = body.owner;
           if (!v || !v.alive) continue;
