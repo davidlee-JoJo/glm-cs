@@ -166,6 +166,7 @@ export function updateWeapon(inst, dt) {
 export function fireWeapon(game, shooter, inst, origin, dir, opts = {}) {
   const def = inst.def;
   if (inst.cd > 0 || inst.reloading) return null;
+  shooter.protT = 0;
 
   if (def.kind === 'melee') {
     inst.cd = def.rate;

@@ -476,6 +476,7 @@ export class Player {
     this.alive = false;
     this.deaths++;
     this.scoped = false;
+    if (this.game.config.mode === 'dm') this.respawnT = 3;
     const eye = this.eyePos();
     this.deathEye = new THREE.Vector3(eye.x, Math.max(0.4, eye.y - 0.9), eye.z);
     this.body.blockBullets = false;

@@ -284,6 +284,43 @@ const puppeteer = require('puppeteer-core');
   if (!w2Ok) fail = true;
   console.log(`[${w2Ok ? 'OK' : 'FAIL'}] MP5/M3/頭盔: spent=$${weapons2.spent} 頭盔爆頭${weapons2.hsHelmet}/無盔${weapons2.hsNoHelmet} 霰彈=${weapons2.sgDmg} bot盔=${weapons2.botHelmet}/${weapons2.botGun}`);
 
+  const dmTest = await page.evaluate(async () => {
+    const g = window.__glmcs_game;
+    g.startMatch({ mode: 'dm', difficulty: 'normal', ctBots: 2, tBots: 2, map: 'dust', sens: 1 });
+    g.debug.god = true;
+    const r = {};
+    r.mode = g.config.mode;
+    r.bombIdle = g.bomb.state === 'idle';
+    r.playerMoney = g.player.money;
+    r.roundTime = g.roundTime;
+    g.buyTimeLeft = 0;
+    r.buyAnytime = g.canBuy();
+    const bot = g.bots[0];
+    const deathPos = bot.body.pos.clone();
+    g.onKill(g.player, bot, g.weaponNS.WEAPONS.usp, false);
+    r.killCounted = g.player.kills === 1;
+    r.respawnScheduled = bot.respawnT === 3 && !bot.alive;
+    const t0 = performance.now();
+    while (performance.now() - t0 < 9000 && !bot.alive) await new Promise((res) => setTimeout(res, 200));
+    r.botRespawned = bot.alive;
+    r.movedAway = bot.body.pos.distanceTo(deathPos) > 5;
+    r.protected = bot.protT > g.time;
+    const hp = g.player.health;
+    g.player.protT = g.time + 2;
+    g.applyHit(g.player, 50, bot, false, g.weaponNS.WEAPONS.usp, g.player.body.pos.clone());
+    r.protBlocks = g.player.health === hp;
+    g.player.protT = 0;
+    g.player.kills = 24;
+    g.onKill(g.player, g.bots[1], g.weaponNS.WEAPONS.usp, false);
+    r.matchEnded = g.state === 'matchEnd';
+    return r;
+  });
+  const dmOk = dmTest.mode === 'dm' && dmTest.bombIdle && dmTest.playerMoney === 16000 &&
+    dmTest.roundTime === 600 && dmTest.buyAnytime && dmTest.killCounted && dmTest.respawnScheduled &&
+    dmTest.botRespawned && dmTest.movedAway && dmTest.protected && dmTest.protBlocks && dmTest.matchEnded;
+  if (!dmOk) fail = true;
+  console.log(`[${dmOk ? 'OK' : 'FAIL'}] 死鬥模式: 金錢=${dmTest.playerMoney} 隨時購買=${dmTest.buyAnytime} 擊殺計數=${dmTest.killCounted} 3s重生=${dmTest.botRespawned} 遠離屍位=${dmTest.movedAway} 保護=${dmTest.protected}/${dmTest.protBlocks} 25殺終局=${dmTest.matchEnded}`);
+
   console.log(`頁面錯誤: ${errors.length ? errors.join(' | ') : '無'}`);
   if (errors.length) fail = true;
   console.log(fail ? 'E2E FAIL' : 'E2E ALL PASS');

@@ -101,12 +101,19 @@ export class HUD {
       const t = Math.max(0, game.roundTime);
       const m = Math.floor(t / 60), s = Math.floor(t % 60);
       th.textContent = m + ':' + (s < 10 ? '0' : '') + s;
-      this.el.timerLabel.textContent = '回合時間';
+      this.el.timerLabel.textContent = game.config.mode === 'dm' ? '比賽時間' : '回合時間';
       th.classList.toggle('low', t < 20);
     }
-    this.el.scoreT.textContent = game.scoreT;
-    this.el.scoreCT.textContent = game.scoreCT;
-    this.el.roundLabel.textContent = `第 ${game.roundNum} 回合 · ${game.map.def.name} · ${game.config.mode === 'bomb' ? '炸彈攻防' : '團隊殲滅'} · ${game.config.diffName}`;
+    if (game.config.mode === 'dm') {
+      this.el.scoreT.textContent = p.kills;
+      this.el.scoreCT.textContent = Math.max(...game.players.map((x) => x.kills));
+    } else {
+      this.el.scoreT.textContent = game.scoreT;
+      this.el.scoreCT.textContent = game.scoreCT;
+    }
+    this.el.roundLabel.textContent = game.config.mode === 'dm' ?
+      `死鬥模式 · ${game.map.def.name} · ${game.config.diffName} · 目標 25 擊殺` :
+      `第 ${game.roundNum} 回合 · ${game.map.def.name} · ${game.config.mode === 'bomb' ? '炸彈攻防' : '團隊殲滅'} · ${game.config.diffName}`;
 
     const spread = p.alive ? p.currentSpreadVal() : 0;
     const gap = 4 + spread * 900;

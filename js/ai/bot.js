@@ -561,6 +561,7 @@ export class Bot {
     this.deaths++;
     this.deathT = 0;
     this.body.blockBullets = false;
+    if (this.game.config.mode === 'dm') this.respawnT = 3;
     this.game.physics.removeBody(this.body);
   }
 

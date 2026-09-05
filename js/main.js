@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Engine } from './core/engine.js';
-import { PhysicsWorld, AABB, Body } from './core/physics.js';
+import { PhysicsWorld, AABB, Body, aabbTest } from './core/physics.js';
 import { Input } from './core/input.js';
 import { GameMap } from './world/map.js';
 import { MAPS } from './world/maps.js';
@@ -15,6 +15,9 @@ import { WeaponInst, WEAPONS, makeLoadout, GRENADE_TYPES, NADE_BY_DEFKEY, DEF_BY
 
 const FIXED = 1 / 60;
 const WIN_ROUNDS = 8;
+const DM_TARGET = 25;
+const DM_TIME = 600;
+const DM_RESPAWN = 3;
 
 const DIFFS = {
   easy: { name: '簡單', reaction: 0.6, aimErr: 0.13, burst: 3, speed: 3.9 },
@@ -420,6 +423,7 @@ export class Game {
       diff: DIFFS[cfg.difficulty],
       diffName: DIFFS[cfg.difficulty].name
     };
+    const dm = this.config.mode === 'dm';
     for (const b of this.bots) b.remove();
     this.bots = [];
     this.fx.clear();
@@ -433,6 +437,7 @@ export class Game {
       this.player = new Player(this);
       this.players = [this.player];
     } else this.player.resetForRound(this.map.spawnCT[0], false);
+    if (dm) this.player.money = 16000;
 
     const ctNames = CT_NAMES.slice(0, this.config.ctBots);
     const tNames = T_NAMES.slice(0, this.config.tBots);
@@ -441,6 +446,12 @@ export class Game {
     }
     for (let i = 0; i < this.config.tBots; i++) {
       this.bots.push(new Bot(this, 'T', tNames[i], this.config.diff));
+    }
+    if (dm) {
+      for (const bot of this.bots) {
+        bot.money = 16000;
+        this.botBuy(bot, true);
+      }
     }
     this.players = [this.player, ...this.bots];
 
@@ -459,10 +470,11 @@ export class Game {
 
   nextRound() {
     this.roundNum++;
+    const dm = this.config.mode === 'dm';
     this.state = 'freeze';
-    this.freezeLeft = 3;
-    this.buyTimeLeft = 15;
-    this.roundTime = this.config.mode === 'bomb' ? 115 : 120;
+    this.freezeLeft = dm ? 2 : 3;
+    this.buyTimeLeft = dm ? DM_TIME + 30 : 15;
+    this.roundTime = dm ? DM_TIME : this.config.mode === 'bomb' ? 115 : 120;
     this.paused = false;
     this.fx.clear();
     for (const p of this.physics.projectiles.slice()) {
@@ -498,14 +510,20 @@ export class Game {
       this.bomb.carrier = carrier;
     }
 
-    this.hud.banner(`第 ${this.roundNum} 回合`, this.config.mode === 'bomb' ? '炸彈攻防 — 恐怖分子攜帶 C4' : '團隊殲滅', '', 2.5);
+    this.hud.banner(
+      dm ? '死鬥模式' : `第 ${this.roundNum} 回合`,
+      dm ? `率先達到 ${DM_TARGET} 擊殺即可獲勝 — 隨時可按 B 購買` :
+        (this.config.mode === 'bomb' ? '炸彈攻防 — 恐怖分子攜帶 C4' : '團隊殲滅'),
+      '', 2.5
+    );
     this.audio.roundStart();
     if (this.menu.buyOpen) this.menu.closeBuy();
   }
 
   canBuy() {
-    return this.inMatch() && this.player.alive && this.buyTimeLeft > 0 &&
-      (this.state === 'freeze' || this.state === 'live');
+    if (!this.inMatch() || !this.player.alive) return false;
+    if (this.config.mode === 'dm') return this.state === 'freeze' || this.state === 'live';
+    return this.buyTimeLeft > 0 && (this.state === 'freeze' || this.state === 'live');
   }
 
   buy(key) {
@@ -539,8 +557,8 @@ export class Game {
     return true;
   }
 
-  botBuy(bot) {
-    if (this.roundNum <= 1) return;
+  botBuy(bot, force = false) {
+    if (!force && this.roundNum <= 1) return;
     const l = bot.loadout;
     const buyArmor = () => {
       if (bot.money >= 1000 && bot.armor <= 0) {
@@ -707,6 +725,7 @@ export class Game {
 
   applyHit(victim, dmg, attacker, headshot, def, point) {
     if (!victim || !victim.alive || !this.inMatch()) return;
+    if (victim.protT && this.time < victim.protT) return;
     if (this.debug.god && victim === this.player) return;
     if (attacker && attacker !== victim && victim.team === attacker.team) return;
 
@@ -746,11 +765,15 @@ export class Game {
       this.bombMesh.position.copy(this.bomb.pos);
       this.hud.banner('炸彈已掉落', '', '', 2);
     }
+    if (this.config.mode === 'dm') {
+      if (attacker && attacker.kills >= DM_TARGET) this.matchEnd();
+      return;
+    }
     this.checkRoundEnd();
   }
 
   checkRoundEnd() {
-    if (this.state !== 'live') return;
+    if (this.state !== 'live' || this.config.mode === 'dm') return;
     const tAlive = this.players.filter((p) => p.team === 'T' && p.alive).length;
     const ctAlive = this.players.filter((p) => p.team === 'CT' && p.alive).length;
     if (ctAlive === 0) { this.endRound('T', '反恐部隊全滅'); return; }
@@ -783,7 +806,7 @@ export class Game {
   }
 
   endRound(winner, reason) {
-    if (this.state !== 'live') return;
+    if (this.state !== 'live' || this.config.mode === 'dm') return;
     this.state = 'roundEnd';
     this.roundEndT = 4;
     if (winner === 'T') this.scoreT++;
@@ -824,11 +847,13 @@ export class Game {
       if (!(this.bomb && this.bomb.state === 'planted')) {
         this.roundTime -= dt;
         if (this.roundTime <= 0) {
+          if (this.config.mode === 'dm') { this.matchEnd(); return; }
           this.endRound('CT', '時間到 — 目標未完成');
           return;
         }
       }
       if (this.config.mode === 'bomb') this.updateBomb(dt);
+      if (this.config.mode === 'dm') this.updateRespawns(dt);
     } else if (this.state === 'roundEnd') {
       this.roundEndT -= dt;
       if (this.roundEndT <= 0) {
@@ -900,12 +925,82 @@ export class Game {
     }
   }
 
+  _pickRespawnPos() {
+    const map = this.map;
+    const enemies = this.players.filter((p) => p.alive);
+    let best = null, bestScore = -1;
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const col = Math.floor(Math.random() * map.cols);
+      const row = Math.floor(Math.random() * map.rows);
+      if (!map.walkable(col, row)) continue;
+      const x = map.cellToWorldX(col), z = map.cellToWorldZ(row);
+      const box = new AABB(x - 0.6, 0, z - 0.6, x + 0.6, 1.9, z + 0.6);
+      let blocked = false;
+      for (const s of this.physics.solids) {
+        if (s.tag === 'floor' || s.tag === 'ceiling') continue;
+        if (aabbTest(box, s.box)) { blocked = true; break; }
+      }
+      if (blocked) continue;
+      let minD = 1e9;
+      for (const e of enemies) minD = Math.min(minD, e.body.pos.distanceTo(new THREE.Vector3(x, 1, z)));
+      const score = minD >= 15 ? minD + 100 : minD;
+      if (score > bestScore) { bestScore = score; best = { x, y: 0.95, z }; }
+      if (minD >= 15 && attempt > 8) break;
+    }
+    if (best) return best;
+    const s = map.spawnCT[0];
+    return { x: s.x, y: 0.95, z: s.z };
+  }
+
+  updateRespawns(dt) {
+    for (const p of this.players) {
+      if (p.alive || p.respawnT === undefined) continue;
+      p.respawnT -= dt;
+      if (p === this.player) this.hud.hint(`重生倒數 ${Math.max(0, Math.ceil(p.respawnT))}s...`);
+      if (p.respawnT <= 0) this._respawn(p);
+    }
+  }
+
+  _respawn(p) {
+    p.resetForRound(this._pickRespawnPos(), true);
+    p.protT = this.time + 3;
+    if (p === this.player) {
+      this.hud.setSpectating(false);
+      this.hud.hint(null);
+      this.hud.banner('已重生', '3 秒重生保護 — 開火後失效', '', 1.5);
+    } else {
+      if (p.money >= 500 && !p.loadout.grenades.he) {
+        p.loadout.grenades.he = new WeaponInst(DEF_BY_NADE.he);
+        p.loadout.grenades.he.mag = 1;
+        p.money -= 300;
+      }
+      if (p.money >= 200 && !p.loadout.grenades.flash) {
+        p.loadout.grenades.flash = new WeaponInst(DEF_BY_NADE.flash);
+        p.loadout.grenades.flash.mag = 1;
+        p.money -= 200;
+      }
+    }
+  }
+
   matchEnd() {
     this.state = 'matchEnd';
     this.input.enabled = false;
     this.input.exitLock();
-    const win = this.scoreCT > this.scoreT;
     const p = this.player;
+    if (this.config.mode === 'dm') {
+      const sorted = [...this.players].sort((a, b) => b.kills - a.kills);
+      const win = sorted[0] === p;
+      this.menu.showEnd(
+        win ? '勝利!' : '戰敗',
+        `死鬥結束 — 冠軍 ${sorted[0].name}（${sorted[0].kills} 擊殺）`,
+        `你的成績：擊殺 ${p.kills} ／ 死亡 ${p.deaths} ／ K/D ${(p.kills / Math.max(1, p.deaths)).toFixed(2)}`,
+        win
+      );
+      if (win) this.audio.win();
+      else this.audio.lose();
+      return;
+    }
+    const win = this.scoreCT > this.scoreT;
     this.menu.showEnd(
       win ? '勝利!' : '戰敗',
       `最終比分 — 反恐部隊 ${this.scoreCT} : ${this.scoreT} 恐怖分子`,
