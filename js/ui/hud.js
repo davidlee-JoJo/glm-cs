@@ -97,6 +97,11 @@ export class HUD {
       th.textContent = '💣';
       this.el.timerLabel.textContent = '炸彈倒數 ' + Math.max(0, game.bomb.timer).toFixed(1);
       th.classList.add('low');
+    } else if (game.config.mode === 'survival') {
+      const n = game.players.filter((x) => x.team === 'T' && x.alive).length;
+      th.textContent = '☠ ' + n;
+      this.el.timerLabel.textContent = '剩餘敵人';
+      th.classList.remove('low');
     } else {
       const t = Math.max(0, game.roundTime);
       const m = Math.floor(t / 60), s = Math.floor(t % 60);
@@ -104,16 +109,18 @@ export class HUD {
       this.el.timerLabel.textContent = game.config.mode === 'dm' ? '比賽時間' : '回合時間';
       th.classList.toggle('low', t < 20);
     }
-    if (game.config.mode === 'dm') {
-      this.el.scoreT.textContent = p.kills;
-      this.el.scoreCT.textContent = Math.max(...game.players.map((x) => x.kills));
+    if (game.config.mode === 'dm' || game.config.mode === 'survival') {
+      this.el.scoreT.textContent = game.config.mode === 'survival' ? `第${game.roundNum}波` : p.kills;
+      this.el.scoreCT.textContent = game.config.mode === 'survival' ? p.kills : Math.max(...game.players.map((x) => x.kills));
     } else {
       this.el.scoreT.textContent = game.scoreT;
       this.el.scoreCT.textContent = game.scoreCT;
     }
+    const modeLabel = game.config.mode === 'bomb' ? '炸彈攻防' : game.config.mode === 'dm' ? '死鬥模式' :
+      game.config.mode === 'survival' ? `生存模式 第${game.roundNum}波` : '團隊殲滅';
     this.el.roundLabel.textContent = game.config.mode === 'dm' ?
       `死鬥模式 · ${game.map.def.name} · ${game.config.diffName} · 目標 25 擊殺` :
-      `第 ${game.roundNum} 回合 · ${game.map.def.name} · ${game.config.mode === 'bomb' ? '炸彈攻防' : '團隊殲滅'} · ${game.config.diffName}`;
+      `第 ${game.roundNum} 回合 · ${game.map.def.name} · ${modeLabel} · ${game.config.diffName}`;
 
     const spread = p.alive ? p.currentSpreadVal() : 0;
     const gap = 4 + spread * 900;

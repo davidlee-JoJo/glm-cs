@@ -18,6 +18,7 @@ const WIN_ROUNDS = 8;
 const DM_TARGET = 25;
 const DM_TIME = 600;
 const DM_RESPAWN = 3;
+const WIN_WAVES = 10;
 
 const DIFFS = {
   easy: { name: '簡單', reaction: 0.6, aimErr: 0.13, burst: 3, speed: 3.9 },
@@ -424,6 +425,7 @@ export class Game {
       diffName: DIFFS[cfg.difficulty].name
     };
     const dm = this.config.mode === 'dm';
+    const survival = this.config.mode === 'survival';
     for (const b of this.bots) b.remove();
     this.bots = [];
     this.fx.clear();
@@ -438,6 +440,7 @@ export class Game {
       this.players = [this.player];
     } else this.player.resetForRound(this.map.spawnCT[0], false);
     if (dm) this.player.money = 16000;
+    else if (survival) this.player.money = 2000;
 
     const ctNames = CT_NAMES.slice(0, this.config.ctBots);
     const tNames = T_NAMES.slice(0, this.config.tBots);
@@ -452,6 +455,8 @@ export class Game {
         bot.money = 16000;
         this.botBuy(bot, true);
       }
+    } else if (survival) {
+      for (const bot of this.bots) bot.money = 1000;
     }
     this.players = [this.player, ...this.bots];
 
@@ -471,9 +476,25 @@ export class Game {
   nextRound() {
     this.roundNum++;
     const dm = this.config.mode === 'dm';
+    const survival = this.config.mode === 'survival';
+    if (survival) {
+      for (const b of this.bots) if (b.team === 'T') b.remove();
+      this.bots = this.bots.filter((b) => b.team !== 'T');
+      const base = this.config.diff;
+      const waveDiff = {
+        name: base.name, burst: base.burst,
+        reaction: Math.max(0.15, base.reaction - this.roundNum * 0.025),
+        aimErr: Math.max(0.02, base.aimErr - this.roundNum * 0.007),
+        speed: Math.min(5.2, base.speed + this.roundNum * 0.12)
+      };
+      const count = Math.min(1 + this.roundNum, 8);
+      for (let i = 0; i < count; i++) {
+        this.bots.push(new Bot(this, 'T', T_NAMES[(this.roundNum + i) % T_NAMES.length], waveDiff));
+      }
+    }
     this.state = 'freeze';
-    this.freezeLeft = dm ? 2 : 3;
-    this.buyTimeLeft = dm ? DM_TIME + 30 : 15;
+    this.freezeLeft = dm ? 2 : survival ? 10 : 3;
+    this.buyTimeLeft = dm ? DM_TIME + 30 : survival ? 10 : 15;
     this.roundTime = dm ? DM_TIME : this.config.mode === 'bomb' ? 115 : 120;
     this.paused = false;
     this.fx.clear();
@@ -493,7 +514,7 @@ export class Game {
       const wasAlive = bot.alive;
       const spawn = bot.team === 'T' ? tSpawns[ti++ % tSpawns.length] : ctSpawns[1 + (ci++ % (ctSpawns.length - 1))];
       bot.resetForRound(spawn, wasAlive);
-      this.botBuy(bot);
+      this.botBuy(bot, survival);
     }
 
     this.bomb = {
@@ -511,8 +532,9 @@ export class Game {
     }
 
     this.hud.banner(
-      dm ? '死鬥模式' : `第 ${this.roundNum} 回合`,
+      dm ? '死鬥模式' : survival ? `第 ${this.roundNum} 波` : `第 ${this.roundNum} 回合`,
       dm ? `率先達到 ${DM_TARGET} 擊殺即可獲勝 — 隨時可按 B 購買` :
+        survival ? `敵人来袭 — 共 ${this.bots.filter((b) => b.team === 'T').length} 名，購買裝備備戰` :
         (this.config.mode === 'bomb' ? '炸彈攻防 — 恐怖分子攜帶 C4' : '團隊殲滅'),
       '', 2.5
     );
@@ -769,11 +791,15 @@ export class Game {
       if (attacker && attacker.kills >= DM_TARGET) this.matchEnd();
       return;
     }
+    if (this.config.mode === 'survival') {
+      if (victim === this.player) this.survivalEnd(false);
+      return;
+    }
     this.checkRoundEnd();
   }
 
   checkRoundEnd() {
-    if (this.state !== 'live' || this.config.mode === 'dm') return;
+    if (this.state !== 'live' || this.config.mode === 'dm' || this.config.mode === 'survival') return;
     const tAlive = this.players.filter((p) => p.team === 'T' && p.alive).length;
     const ctAlive = this.players.filter((p) => p.team === 'CT' && p.alive).length;
     if (ctAlive === 0) { this.endRound('T', '反恐部隊全滅'); return; }
@@ -806,7 +832,7 @@ export class Game {
   }
 
   endRound(winner, reason) {
-    if (this.state !== 'live' || this.config.mode === 'dm') return;
+    if (this.state !== 'live' || this.config.mode === 'dm' || this.config.mode === 'survival') return;
     this.state = 'roundEnd';
     this.roundEndT = 4;
     if (winner === 'T') this.scoreT++;
@@ -844,7 +870,7 @@ export class Game {
       }
     } else if (this.state === 'live') {
       this.buyTimeLeft -= dt;
-      if (!(this.bomb && this.bomb.state === 'planted')) {
+      if (this.config.mode !== 'survival' && !(this.bomb && this.bomb.state === 'planted')) {
         this.roundTime -= dt;
         if (this.roundTime <= 0) {
           if (this.config.mode === 'dm') { this.matchEnd(); return; }
@@ -854,13 +880,46 @@ export class Game {
       }
       if (this.config.mode === 'bomb') this.updateBomb(dt);
       if (this.config.mode === 'dm') this.updateRespawns(dt);
+      if (this.config.mode === 'survival' && !this.players.some((p) => p.team === 'T' && p.alive)) {
+        this.waveComplete();
+      }
     } else if (this.state === 'roundEnd') {
       this.roundEndT -= dt;
       if (this.roundEndT <= 0) {
-        if (this.scoreT >= WIN_ROUNDS || this.scoreCT >= WIN_ROUNDS) this.matchEnd();
+        if (this.config.mode === 'survival') {
+          if (this.roundNum >= WIN_WAVES) this.survivalEnd(true);
+          else this.nextRound();
+        } else if (this.scoreT >= WIN_ROUNDS || this.scoreCT >= WIN_ROUNDS) this.matchEnd();
         else this.nextRound();
       }
     }
+  }
+
+  waveComplete() {
+    if (this.state !== 'live') return;
+    this.state = 'roundEnd';
+    this.roundEndT = 5;
+    const bonus = 400 + this.roundNum * 150;
+    for (const p of this.players) {
+      if (p.alive) p.money = Math.min(16000, p.money + bonus);
+    }
+    this.hud.banner(`第 ${this.roundNum} 波肅清`, `獎勵 $${bonus} — 下一波即將來襲`, 'win', 4);
+    this.audio.win();
+  }
+
+  survivalEnd(win) {
+    this.state = 'matchEnd';
+    this.input.enabled = false;
+    this.input.exitLock();
+    const p = this.player;
+    this.menu.showEnd(
+      win ? '勝利!' : '戰敗',
+      win ? `你撐過了全部 ${WIN_WAVES} 波攻勢！` : `你在第 ${this.roundNum} 波陣亡`,
+      `你的成績：擊殺 ${p.kills} ／ 死亡 ${p.deaths} ／ 到達波次 ${this.roundNum}/${WIN_WAVES}`,
+      win
+    );
+    if (win) this.audio.win();
+    else this.audio.lose();
   }
 
   updateBomb(dt) {

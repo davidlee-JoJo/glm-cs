@@ -321,6 +321,33 @@ const puppeteer = require('puppeteer-core');
   if (!dmOk) fail = true;
   console.log(`[${dmOk ? 'OK' : 'FAIL'}] 死鬥模式: 金錢=${dmTest.playerMoney} 隨時購買=${dmTest.buyAnytime} 擊殺計數=${dmTest.killCounted} 3s重生=${dmTest.botRespawned} 遠離屍位=${dmTest.movedAway} 保護=${dmTest.protected}/${dmTest.protBlocks} 25殺終局=${dmTest.matchEnded}`);
 
+  const surv = await page.evaluate(async () => {
+    const g = window.__glmcs_game;
+    g.startMatch({ mode: 'survival', difficulty: 'normal', ctBots: 1, tBots: 0, map: 'dust', sens: 1 });
+    g.debug.god = true;
+    const r = {};
+    r.mode = g.config.mode;
+    r.wave1Bots = g.bots.filter((b) => b.team === 'T').length;
+    r.playerMoney = g.player.money;
+    for (const b of g.bots.filter((x) => x.team === 'T')) {
+      g.onKill(g.player, b, g.weaponNS.WEAPONS.usp, false);
+    }
+    const t0 = performance.now();
+    while (performance.now() - t0 < 24000 && g.roundNum < 2) await new Promise((res) => setTimeout(res, 200));
+    r.wave2 = g.roundNum === 2;
+    r.wave2Bots = g.bots.filter((b) => b.team === 'T').length;
+    r.teammateAlive = g.bots.filter((b) => b.team === 'CT').every((b) => b.alive);
+    r.waveDiffHarder = g.bots.find((b) => b.team === 'T').diff.reaction <= g.config.diff.reaction;
+    g.debug.god = false;
+    g.onKill(g.bots.find((b) => b.team === 'T'), g.player, g.weaponNS.WEAPONS.usp, false);
+    r.endedOnDeath = g.state === 'matchEnd';
+    return r;
+  });
+  const survOk = surv.mode === 'survival' && surv.wave1Bots === 2 && surv.playerMoney === 2000 &&
+    surv.wave2 && surv.wave2Bots === 3 && surv.teammateAlive && surv.waveDiffHarder && surv.endedOnDeath;
+  if (!survOk) fail = true;
+  console.log(`[${survOk ? 'OK' : 'FAIL'}] 生存模式: 首波=${surv.wave1Bots}敵 起始金=${surv.playerMoney} 第2波=${surv.wave2}(${surv.wave2Bots}敵) 隊友重生=${surv.teammateAlive} 難度遞增=${surv.waveDiffHarder} 陣亡終局=${surv.endedOnDeath}`);
+
   console.log(`頁面錯誤: ${errors.length ? errors.join(' | ') : '無'}`);
   if (errors.length) fail = true;
   console.log(fail ? 'E2E FAIL' : 'E2E ALL PASS');
