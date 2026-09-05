@@ -1,0 +1,14 @@
+{
+  "name": "glm-cs",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "CS-style FPS game built with Three.js and a custom physics engine",
+  "scripts": {
+    "start": "npx -y serve .",
+    "check": "node tools/check-map.mjs"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.10.0",
+    "three": "^0.160.1"
+  }
+}

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GLM-CS — CS 風格 FPS</title>
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="game-canvas"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="crosshair">
+    <div class="ch-line ch-t"></div>
+    <div class="ch-line ch-b"></div>
+    <div class="ch-line ch-l"></div>
+    <div class="ch-line ch-r"></div>
+  </div>
+  <div id="hitmarker">
+    <div class="hm-line hm-1"></div>
+    <div class="hm-line hm-2"></div>
+    <div class="hm-line hm-3"></div>
+    <div class="hm-line hm-4"></div>
+  </div>
+  <div id="dmg-dir"></div>
+  <div id="vignette"></div>
+  <div id="scope-overlay" class="hidden"><div class="scope-circle"></div><div class="scope-h"></div><div class="scope-v"></div></div>
+
+  <div id="top-bar">
+    <div id="score-t" class="score-box t">0</div>
+    <div id="timer-box"><div id="timer-value">1:55</div><div id="timer-label">回合時間</div></div>
+    <div id="score-ct" class="score-box ct">0</div>
+  </div>
+  <div id="round-label">第 1 回合</div>
+  <div id="bomb-hud" class="hidden">💣 炸彈已設置</div>
+
+  <div id="killfeed"></div>
+  <canvas id="minimap" width="168" height="168"></canvas>
+
+  <div id="msg-center" class="hidden"><div id="msg-title"></div><div id="msg-sub"></div></div>
+  <div id="interact-wrap" class="hidden"><div id="interact-label">設置炸彈</div><div id="interact-bar"><div id="interact-fill"></div></div></div>
+
+  <div id="bottom-left">
+    <div id="money-box">$<span id="money-value">800</span></div>
+    <div id="vitals">
+      <div class="vital"><span class="vital-icon">♥</span><span id="hp-value">100</span></div>
+      <div class="vital"><span class="vital-icon">🛡</span><span id="armor-value">0</span></div>
+    </div>
+  </div>
+  <div id="bottom-right">
+    <div id="weapon-name">USP</div>
+    <div id="ammo-box"><span id="ammo-mag">12</span><span id="ammo-sep">/</span><span id="ammo-reserve">24</span></div>
+  </div>
+  <div id="hint-bar" class="hidden"></div>
+  <div id="spectate-note" class="hidden">你已陣亡 — 觀戰中</div>
+
+  <div id="scoreboard" class="hidden">
+    <div id="sb-title">計分板</div>
+    <table><thead><tr><th>名稱</th><th>隊伍</th><th>擊殺</th><th>死亡</th><th>金錢</th><th>狀態</th></tr></thead><tbody id="sb-rows"></tbody></table>
+  </div>
+</div>
+
+<div id="debug-panel" class="hidden">
+  <div id="dbg-title">GLM-CS 調適模式 <span id="dbg-hint">[F3]面板 [F4]視覺化 [F6]無敵 [F7]重力 [F8]時間 [F9]穿牆</span></div>
+  <pre id="dbg-main"></pre>
+  <pre id="dbg-bots"></pre>
+</div>
+
+<div id="buy-menu" class="hidden">
+  <div class="panel-title">購買裝備 <span id="buy-money" class="money-tag"></span><span id="buy-timer" class="money-tag"></span></div>
+  <div id="buy-items"></div>
+  <div class="menu-tip">按 B 或 Esc 關閉</div>
+</div>
+
+<div id="main-menu" class="overlay">
+  <div id="menu-box">
+    <h1>GLM<span class="accent">-</span>CS</h1>
+    <div class="subtitle">CS 風格戰術射擊 — Three.js + 自訂物理引擎</div>
+    <div class="menu-section">
+      <label>遊戲模式</label>
+      <div class="opt-row" id="mode-row">
+        <button class="opt-btn selected" data-v="elim">團隊殲滅</button>
+        <button class="opt-btn" data-v="bomb">炸彈攻防</button>
+      </div>
+    </div>
+    <div class="menu-section">
+      <label>AI 難度</label>
+      <div class="opt-row" id="diff-row">
+        <button class="opt-btn" data-v="easy">簡單</button>
+        <button class="opt-btn selected" data-v="normal">普通</button>
+        <button class="opt-btn" data-v="hard">困難</button>
+      </div>
+    </div>
+    <div class="menu-section">
+      <label>每隊 Bot 數</label>
+      <div class="opt-row" id="bots-row">
+        <button class="opt-btn" data-v="1">1</button>
+        <button class="opt-btn" data-v="2">2</button>
+        <button class="opt-btn selected" data-v="3">3</button>
+        <button class="opt-btn" data-v="4">4</button>
+      </div>
+    </div>
+    <div class="menu-section">
+      <label>滑鼠靈敏度 <span id="sens-val">1.0</span></label>
+      <input type="range" id="sens-slider" min="0.3" max="3" step="0.1" value="1">
+    </div>
+    <button id="btn-start" class="primary-btn">開始遊戲</button>
+    <div class="controls-list">
+      <div>WASD 移動 · 滑鼠 射擊 · Shift 靜走 · Ctrl 蹲下 · Space 跳躍</div>
+      <div>R 換彈 · B 買槍 · 1-4 切換武器 · G 手榴彈 · E 下包/拆包</div>
+      <div>F3 調適模式 · Tab 計分板 · Esc 暫停</div>
+    </div>
+    <div class="menu-tip">部署到 GitHub Pages 可直接遊玩；本機測試請用 npx serve 或 Live Server</div>
+  </div>
+</div>
+
+<div id="pause-menu" class="overlay hidden">
+  <div id="pause-box">
+    <h2>已暫停</h2>
+    <button id="btn-resume" class="primary-btn">繼續遊戲</button>
+    <button id="btn-restart">重新開始</button>
+    <button id="btn-quit">回主選單</button>
+  </div>
+</div>
+
+<div id="end-screen" class="overlay hidden">
+  <div id="end-box">
+    <h2 id="end-title">勝利</h2>
+    <div id="end-sub"></div>
+    <div id="end-stats"></div>
+    <button id="btn-again" class="primary-btn">再來一場</button>
+    <button id="btn-menu2">回主選單</button>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
