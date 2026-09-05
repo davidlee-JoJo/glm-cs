@@ -3,6 +3,7 @@ import * as THREE from 'three';
 export const THEMES = {
   dust: {
     sky: 0xb9c6d8, fogNear: 55, fogFar: 175,
+    light: { hemi: 1.05, sun: 1.9, sunColor: 0xfff1d6, shadow: 48 },
     floor: '#b39a68', floorLine: 'rgba(70,55,30,0.35)', floorPatch: 'rgba(60,45,25,0.15)',
     wall: '#c9b98d', wallStreak: 'rgba(90,75,45,0.2)', wallBand: 'rgba(120,100,60,0.25)',
     crate: '#9c7440', crateLine: 'rgba(60,40,15,0.6)',
@@ -10,6 +11,7 @@ export const THEMES = {
   },
   inferno: {
     sky: 0xcfb59a, fogNear: 50, fogFar: 160,
+    light: { hemi: 1.0, sun: 1.8, sunColor: 0xffdfb0, shadow: 48 },
     floor: '#a58a66', floorLine: 'rgba(80,55,30,0.4)', floorPatch: 'rgba(70,50,28,0.18)',
     wall: '#c9925f', wallStreak: 'rgba(120,70,35,0.22)', wallBand: 'rgba(150,85,40,0.28)',
     crate: '#8a6238', crateLine: 'rgba(50,30,10,0.65)',
@@ -17,6 +19,7 @@ export const THEMES = {
   },
   nuke: {
     sky: 0x8fa3b3, fogNear: 45, fogFar: 150,
+    light: { hemi: 0.95, sun: 1.6, sunColor: 0xdde8f0, shadow: 48 },
     floor: '#85898d', floorLine: 'rgba(40,45,50,0.4)', floorPatch: 'rgba(50,55,60,0.2)',
     wall: '#a9aeb4', wallStreak: 'rgba(70,75,82,0.25)', wallBand: 'rgba(90,96,104,0.3)',
     crate: '#5f6b73', crateLine: 'rgba(25,30,35,0.6)',
@@ -24,10 +27,27 @@ export const THEMES = {
   },
   snow: {
     sky: 0xe3ecf5, fogNear: 55, fogFar: 170,
+    light: { hemi: 1.15, sun: 1.7, sunColor: 0xf0f6ff, shadow: 48 },
     floor: '#e9eef5', floorLine: 'rgba(150,165,185,0.3)', floorPatch: 'rgba(190,205,225,0.4)',
     wall: '#b6c6d6', wallStreak: 'rgba(120,140,165,0.2)', wallBand: 'rgba(140,160,185,0.3)',
     crate: '#7a5a38', crateLine: 'rgba(45,30,15,0.6)',
     metal: '#8b98a6', concrete: '#c3cbd5'
+  },
+  fortress: {
+    sky: 0xa8b8ac, fogNear: 60, fogFar: 200,
+    light: { hemi: 0.95, sun: 1.75, sunColor: 0xe8e4d0, shadow: 58 },
+    floor: '#8f8a7d', floorLine: 'rgba(55,52,45,0.4)', floorPatch: 'rgba(45,42,36,0.18)',
+    wall: '#9a958a', wallStreak: 'rgba(60,58,50,0.25)', wallBand: 'rgba(70,66,58,0.3)',
+    crate: '#7d6b4a', crateLine: 'rgba(40,32,18,0.6)',
+    metal: '#6e7470', concrete: '#a09a8d'
+  },
+  harbor: {
+    sky: 0x1c2740, fogNear: 38, fogFar: 130,
+    light: { hemi: 0.5, sun: 0.55, sunColor: 0x8aa4d8, shadow: 58 },
+    floor: '#4a5261', floorLine: 'rgba(20,24,32,0.5)', floorPatch: 'rgba(28,34,46,0.35)',
+    wall: '#5a6472', wallStreak: 'rgba(30,36,46,0.3)', wallBand: 'rgba(24,28,36,0.4)',
+    crate: '#6b4a2e', crateLine: 'rgba(25,16,8,0.65)',
+    metal: '#3d4854', concrete: '#565e6a'
   }
 };
 

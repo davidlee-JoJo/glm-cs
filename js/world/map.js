@@ -6,10 +6,14 @@ const WALL_H = 4.2;
 const CRATE_H = 1.0;
 const STACK_H = 2.0;
 const LOW_H = 1.1;
+const ELEV_H = { '1': 0.45, '2': 0.9, '3': 1.35, '4': 1.8, 'P': 2.0 };
+const CEIL_H = 3.6;
+const CEIL_TH = 0.4;
 
 export class GameMap {
-  constructor(scene, physics, def) {
-    this.scene = scene;
+  constructor(engine, physics, def) {
+    this.engine = engine;
+    this.scene = engine.scene;
     this.physics = physics;
     this.def = def;
     this.theme = THEMES[def.theme];
@@ -22,17 +26,27 @@ export class GameMap {
     this.navDirty = false;
 
     const bg = new THREE.Color(this.theme.sky);
-    if (scene.background) scene.background.set(bg); else scene.background = bg;
-    if (scene.fog) {
-      scene.fog.color.set(bg);
-      scene.fog.near = this.theme.fogNear;
-      scene.fog.far = this.theme.fogFar;
+    if (this.scene.background) this.scene.background.set(bg); else this.scene.background = bg;
+    const fogN = def.fog ? def.fog[0] : this.theme.fogNear;
+    const fogF = def.fog ? def.fog[1] : this.theme.fogFar;
+    if (this.scene.fog) {
+      this.scene.fog.color.set(bg);
+      this.scene.fog.near = fogN;
+      this.scene.fog.far = fogF;
     }
+    const L = this.theme.light;
+    engine.hemi.intensity = L.hemi;
+    engine.sun.intensity = L.sun;
+    engine.sun.color.set(L.sunColor);
+    const sc = engine.sun.shadow.camera;
+    sc.left = -L.shadow; sc.right = L.shadow; sc.top = L.shadow; sc.bottom = -L.shadow;
+    sc.updateProjectionMatrix();
 
     this._buildFloor();
     this._buildCells();
     this._buildNav();
     this._buildSiteDecals();
+    this._buildIndoor();
   }
 
   dispose() {
@@ -91,14 +105,16 @@ export class GameMap {
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
         const ch = grid[r][c];
-        if (ch !== 'X' && ch !== 'H' && ch !== 'x') continue;
-        const h = ch === 'X' ? CRATE_H : ch === 'H' ? STACK_H : LOW_H;
-        const mat = ch === 'x' ? this.mats.concrete : (c + r) % 3 === 0 ? this.mats.metal : this.mats.crate;
+        const isElev = ELEV_H[ch] !== undefined;
+        if (ch !== 'X' && ch !== 'H' && ch !== 'x' && !isElev) continue;
+        const h = isElev ? ELEV_H[ch] : ch === 'X' ? CRATE_H : ch === 'H' ? STACK_H : LOW_H;
+        const mat = isElev ? this.mats.concrete :
+          ch === 'x' ? this.mats.concrete : (c + r) % 3 === 0 ? this.mats.metal : this.mats.crate;
         const x = this.cellToWorldX(c), z = this.cellToWorldZ(r);
-        const sz = ch === 'x' ? CELL : CELL * 0.92;
+        const sz = (!isElev && ch !== 'x') ? CELL * 0.92 : CELL;
         const mesh = boxMesh(mat, sz, h, sz, x, h / 2, z);
         this._track(mesh);
-        this.physics.addSolid(x, h / 2, z, sz, h, sz, ch === 'x' ? 'lowwall' : 'crate');
+        this.physics.addSolid(x, h / 2, z, sz, h, sz, isElev ? 'elev' : ch === 'x' ? 'lowwall' : 'crate');
         this.rects.push({ x0: x - sz / 2, x1: x + sz / 2, z0: z - sz / 2, z1: z + sz / 2 });
       }
     }
@@ -135,6 +151,18 @@ export class GameMap {
     mk(this.siteB, 'B');
   }
 
+  _buildIndoor() {
+    for (const z of this.def.indoor || []) {
+      const w = (z.c1 - z.c0 + 1) * CELL, d = (z.r1 - z.r0 + 1) * CELL;
+      const x = (z.c0 + (z.c1 - z.c0 + 1) / 2 - this.cols / 2) * CELL;
+      const zz = (z.r0 + (z.r1 - z.r0 + 1) / 2 - this.rows / 2) * CELL;
+      const ceil = boxMesh(this.mats.wall, w, CEIL_TH, d, x, CEIL_H + CEIL_TH / 2, zz);
+      this._track(ceil);
+      this.physics.addSolid(x, CEIL_H + CEIL_TH / 2, zz, w, CEIL_TH, d, 'ceiling');
+      this.rects.push({ x0: x - w / 2, x1: x + w / 2, z0: zz - d / 2, z1: zz + d / 2 });
+    }
+  }
+
   _buildNav() {
     this.walk = [];
     for (let r = 0; r < this.rows; r++) {
@@ -162,7 +190,7 @@ export class GameMap {
     let found = null;
     let guard = 0;
 
-    while (open.length && guard++ < 4000) {
+    while (open.length && guard++ < 12000) {
       let bi = 0;
       for (let i = 1; i < open.length; i++) if (open[i].f < open[bi].f) bi = i;
       const cur = open.splice(bi, 1)[0];

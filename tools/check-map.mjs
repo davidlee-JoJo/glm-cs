@@ -7,15 +7,23 @@ for (const [key, def] of Object.entries(MAPS)) {
   const L = def.layout;
   const rows = L.length, cols = L[0].length;
 
-  if (rows !== 32) errs.push(`rows=${rows} (應為 32)`);
+  if (rows !== 32 && rows !== 48) errs.push(`rows=${rows} (應為 32 或 48)`);
   L.forEach((r, i) => { if (r.length !== cols) errs.push(`r${i} 長度 ${r.length} ≠ ${cols}`); });
   L.forEach((r, i) => {
-    for (const ch of r) if (!WALKABLE.includes(ch) && ch !== '#' && ch !== 'X' && ch !== 'H' && ch !== 'x')
+    for (const ch of r) if (!WALKABLE.includes(ch) && !'#XHxP34'.includes(ch))
       errs.push(`r${i} 非法字元 '${ch}'`);
   });
 
   const walk = L.map((r) => r.split('').map((ch) => WALKABLE.includes(ch)));
   const w = (c, r) => c >= 0 && c < cols && r >= 0 && r < rows && walk[r][c];
+
+  if (def.indoor) {
+    for (const z of def.indoor) {
+      let cnt = 0;
+      for (let r = z.r0; r <= z.r1; r++) for (let c = z.c0; c <= z.c1; c++) if (w(c, r)) cnt++;
+      if (cnt < 8) errs.push(`indoor [${z.c0},${z.r0}] 內可行走格僅 ${cnt}`);
+    }
+  }
 
   for (const [label, arr, min] of [['T', def.spawnT, 5], ['CT', def.spawnCT, 5]]) {
     if (arr.length < min) errs.push(`spawn${label} 只有 ${arr.length} 個 (需 ≥${min})`);

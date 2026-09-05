@@ -17,7 +17,8 @@ export class Engine {
     this.camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.05, 400);
     this.camera.rotation.order = 'YXZ';
 
-    this.scene.add(new THREE.HemisphereLight(0xd9e8ff, 0x9a8a68, 1.05));
+    this.hemi = new THREE.HemisphereLight(0xd9e8ff, 0x9a8a68, 1.05);
+    this.scene.add(this.hemi);
     const sun = new THREE.DirectionalLight(0xfff1d6, 1.9);
     sun.position.set(35, 65, 20);
     sun.castShadow = true;
@@ -26,6 +27,7 @@ export class Engine {
     sc.left = -48; sc.right = 48; sc.top = 48; sc.bottom = -48; sc.near = 5; sc.far = 160;
     sun.shadow.bias = -0.0004;
     this.scene.add(sun);
+    this.sun = sun;
 
     this.vmScene = new THREE.Scene();
     this.vmCamera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.01, 8);

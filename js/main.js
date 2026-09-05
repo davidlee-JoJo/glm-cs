@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Engine } from './core/engine.js';
-import { PhysicsWorld, AABB } from './core/physics.js';
+import { PhysicsWorld, AABB, Body } from './core/physics.js';
 import { Input } from './core/input.js';
 import { GameMap } from './world/map.js';
 import { MAPS } from './world/maps.js';
@@ -167,7 +167,7 @@ export class Game {
     });
     this.audio = new AudioSys();
     this.mapKey = 'dust';
-    this.map = new GameMap(this.engine.scene, this.physics, MAPS.dust);
+    this.map = new GameMap(this.engine, this.physics, MAPS.dust);
     this.hud = new HUD(this);
     this.debug = new Debug(this);
     this.debug.buildVisuals();
@@ -180,7 +180,7 @@ export class Game {
     this.fx = new FX(this);
 
     this.weaponNS = weaponNS;
-    this.physicsNS = { AABB };
+    this.physicsNS = { AABB, Body };
 
     this.players = [];
     this.player = null;
@@ -290,7 +290,7 @@ export class Game {
 
   rebuildMap(key) {
     this.map.dispose();
-    this.map = new GameMap(this.engine.scene, this.physics, MAPS[key]);
+    this.map = new GameMap(this.engine, this.physics, MAPS[key]);
     this.mapKey = key;
     this.hud.buildMinimapBase(this.map);
     this.debug.buildVisuals();

@@ -15,45 +15,81 @@ const puppeteer = require('puppeteer-core');
     if (await page.evaluate(() => !!window.__glmcs_game)) break;
   }
 
-  const maps = ['dust', 'inferno', 'nuke', 'snow'];
-  for (const key of maps) {
+  let fail = false;
+
+  for (const key of ['dust', 'inferno', 'nuke', 'snow', 'fortress', 'harbor']) {
     const info = await page.evaluate((k) => {
       const g = window.__glmcs_game;
       g.startMatch({ mode: 'bomb', difficulty: 'normal', botsPerSide: 3, map: k, sens: 1 });
       return {
         mapKey: g.mapKey,
         name: g.map.def.name,
-        theme: g.map.def.theme,
-        solids: g.physics.solids.length,
         bg: g.engine.scene.background.getHex(),
-        players: g.players.length,
-        bomb: g.bomb && g.bomb.state
+        solids: g.physics.solids.length,
+        ceilings: g.physics.solids.filter((s) => s.tag === 'ceiling').length,
+        elevs: g.physics.solids.filter((s) => s.tag === 'elev').length,
+        fogFar: g.engine.scene.fog.far,
+        hemi: g.engine.hemi.intensity.toFixed(2)
       };
     }, key);
-    await new Promise((r) => setTimeout(r, 4000));
-    const live = await page.evaluate((k) => {
+    await new Promise((r) => setTimeout(r, 3500));
+    const live = await page.evaluate(() => {
       const g = window.__glmcs_game;
-      const feet = g.players.map((p) => p.body.pos.y.toFixed(2));
-      const allOk = g.players.every((p) => p.body.pos.y > -0.5);
-      const siteOk = ['siteA', 'siteB'].every((s) => {
-        const c = g.map[s].center, cell = g.map.worldToCell(c.x, c.z);
-        return g.map.walkable(cell.col, cell.row);
-      });
-      const spawnsOk = [...g.map.spawnT, ...g.map.spawnCT].every((p) => {
-        const cell = g.map.worldToCell(p.x, p.z);
-        return g.map.walkable(cell.col, cell.row);
-      });
-      return { feet, allOk, siteOk, spawnsOk, alive: g.players.filter((p) => p.alive).length };
-    }, key);
-    console.log(`[${key}] ${info.name} theme=${info.theme} bg=0x${info.bg.toString(16)} solids=${info.solids} players=${info.players} bomb=${info.bomb}`);
-    console.log(`  4秒後: feet=[${live.feet.join(',')}] noFall=${live.allOk} alive=${live.alive} sitesOnFloor=${live.siteOk} spawnsValid=${live.spawnsOk}`);
+      return {
+        noFall: g.players.every((p) => p.body.feetY > -0.5),
+        alive: g.players.filter((p) => p.alive).length,
+        siteOk: ['siteA', 'siteB'].every((s) => {
+          const c = g.map[s].center, cell = g.map.worldToCell(c.x, c.z);
+          return g.map.walkable(cell.col, cell.row);
+        })
+      };
+    });
+    const ok = info.mapKey === key && live.noFall && live.siteOk && live.alive >= 4;
+    if (!ok) fail = true;
+    console.log(`[${ok ? 'OK' : 'FAIL'}] ${key} (${info.name}) bg=0x${info.bg.toString(16)} fog=${info.fogFar} hemi=${info.hemi} solids=${info.solids} 天花板=${info.ceilings} 高台=${info.elevs} alive=${live.alive} noFall=${live.noFall} sites=${live.siteOk}`);
   }
 
-  const finalKey = await page.evaluate(() => window.__glmcs_game.mapKey);
-  console.log(`最終地圖: ${finalKey}`);
+  const climb = await page.evaluate(() => {
+    const g = window.__glmcs_game;
+    g.startMatch({ mode: 'elim', difficulty: 'normal', botsPerSide: 2, map: 'fortress', sens: 1 });
+    const ph = g.physics;
+    const body = new g.physicsNS.Body(-43, 0.95, -26, 0.35, 0.9, 0.35);
+    ph.addBody(body);
+    let maxFeet = 0;
+    for (let i = 0; i < 300; i++) {
+      body.vel.x = 0; body.vel.z = 4;
+      ph.step(1 / 60);
+      maxFeet = Math.max(maxFeet, body.feetY);
+    }
+    ph.removeBody(body);
+    return { max: maxFeet.toFixed(2) };
+  });
+  const climbOk = parseFloat(climb.max) > 1.9;
+  if (!climbOk) fail = true;
+  console.log(`[${climbOk ? 'OK' : 'FAIL'}] 要塞城牆樓梯攀爬: 最高 feetY=${climb.max} (平台 2.0)`);
+
+  const climb2 = await page.evaluate(() => {
+    const g = window.__glmcs_game;
+    g.startMatch({ mode: 'elim', difficulty: 'normal', botsPerSide: 2, map: 'harbor', sens: 1 });
+    const ph = g.physics;
+    const body = new g.physicsNS.Body(-23, 0.95, -29, 0.35, 0.9, 0.35);
+    ph.addBody(body);
+    let maxFeet = 0;
+    for (let i = 0; i < 300; i++) {
+      body.vel.x = 0; body.vel.z = -4;
+      ph.step(1 / 60);
+      maxFeet = Math.max(maxFeet, body.feetY);
+    }
+    ph.removeBody(body);
+    return { max: maxFeet.toFixed(2) };
+  });
+  const climb2Ok = parseFloat(climb2.max) > 1.9;
+  if (!climb2Ok) fail = true;
+  console.log(`[${climb2Ok ? 'OK' : 'FAIL'}] 港區碼頭樓梯攀爬: 最高 feetY=${climb2.max} (平台 2.0)`);
+
   console.log(`頁面錯誤: ${errors.length ? errors.join(' | ') : '無'}`);
-  const pass = errors.length === 0;
-  console.log(pass ? 'E2E PASS' : 'E2E FAIL');
+  if (errors.length) fail = true;
+  console.log(fail ? 'E2E FAIL' : 'E2E ALL PASS');
   await browser.close();
-  process.exit(pass ? 0 : 1);
+  process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error('RUNNER FAIL:', e.message); process.exit(1); });
