@@ -511,12 +511,15 @@ export class Game {
   buy(key) {
     if (!this.canBuy()) return false;
     const p = this.player;
-    const price = { deagle: 700, ak47: 2700, m4a4: 3100, awp: 4750, armor: 1000,
+    const price = { deagle: 700, mp5: 1500, m3: 1200, ak47: 2700, m4a4: 3100, awp: 4750, armor: 1000, helmet: 350,
       hegrenade: 300, smoke: 300, flash: 200, molotov: 600 }[key];
     if (!price || p.money < price) return false;
     if (key === 'armor') {
       if (p.armor >= 100) return false;
       p.armor = 100;
+    } else if (key === 'helmet') {
+      if (p.helmet || p.armor < 100) return false;
+      p.helmet = true;
     } else if (GRENADE_TYPES.includes(NADE_BY_DEFKEY[key] || key)) {
       const nk = NADE_BY_DEFKEY[key] || key;
       if (p.loadout.grenades[nk]) return false;
@@ -539,24 +542,37 @@ export class Game {
   botBuy(bot) {
     if (this.roundNum <= 1) return;
     const l = bot.loadout;
+    const buyArmor = () => {
+      if (bot.money >= 1000 && bot.armor <= 0) {
+        bot.armor = 100;
+        bot.money -= 1000;
+        if (bot.money >= 350 && !bot.helmet) { bot.helmet = true; bot.money -= 350; }
+      }
+    };
     if (!l.primary) {
       const wantAwp = bot.money >= 5750 && this.roundNum >= 3 && Math.random() < 0.22 &&
         !this.bots.some((b) => b.team === bot.team && b.loadout.primary && b.loadout.primary.key === 'awp');
       if (wantAwp) {
         l.primary = new WeaponInst('awp');
         bot.money -= 4750;
+        buyArmor();
       } else if (bot.money >= (bot.team === 'T' ? 3700 : 4100)) {
         l.primary = new WeaponInst(bot.team === 'T' ? 'ak47' : 'm4a4');
         bot.money -= l.primary.def.price;
-        if (bot.money >= 1000) { bot.armor = 100; bot.money -= 1000; }
+        buyArmor();
+      } else if (bot.money >= 1500 && Math.random() < 0.5) {
+        l.primary = new WeaponInst('mp5');
+        bot.money -= 1500;
+        buyArmor();
+      } else if (bot.money >= 1200 && Math.random() < 0.4) {
+        l.primary = new WeaponInst('m3');
+        bot.money -= 1200;
+        buyArmor();
       } else if (bot.money >= 1700) {
         l.secondary = new WeaponInst('deagle');
         bot.money -= 700;
       }
-    } else if (bot.money >= 1000 && bot.armor <= 0) {
-      bot.armor = 100;
-      bot.money -= 1000;
-    }
+    } else buyArmor();
     const buyNade = (type, price, chance) => {
       if (!l.grenades[type] && bot.money >= price && Math.random() < chance) {
         const inst = new WeaponInst(DEF_BY_NADE[type]);

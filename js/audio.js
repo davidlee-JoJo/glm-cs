@@ -73,6 +73,12 @@ export class AudioSys {
     } else if (kind === 'pistol') {
       this._noise(0.09, { freq: 3200, gain: 0.6, dist });
       this._tone(220, 0.04, { type: 'square', gain: 0.25, dist, slideTo: 90 });
+    } else if (kind === 'smg') {
+      this._noise(0.07, { freq: 2800, gain: 0.45, dist });
+      this._tone(260, 0.03, { type: 'square', gain: 0.18, dist, slideTo: 110 });
+    } else if (kind === 'shotgun') {
+      this._noise(0.28, { freq: 1100, gain: 1.0, dist });
+      this._tone(85, 0.2, { type: 'square', gain: 0.45, dist, slideTo: 38 });
     } else if (kind === 'awp') {
       this._noise(0.3, { freq: 1500, gain: 1.0, dist });
       this._tone(90, 0.18, { type: 'square', gain: 0.5, dist, slideTo: 40 });

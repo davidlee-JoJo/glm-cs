@@ -232,6 +232,58 @@ const puppeteer = require('puppeteer-core');
   if (!bfOk) fail = true;
   console.log(`[${bfOk ? 'OK' : 'FAIL'}] 機器人推進前丟閃光: thrown=${botFlash.thrown} 玩家被致盲=${botFlash.blinded} (${botFlash.blind}s)`);
 
+  const weapons2 = await page.evaluate(() => {
+    const g = window.__glmcs_game;
+    g.startMatch({ mode: 'elim', difficulty: 'normal', ctBots: 0, tBots: 1, map: 'dust', sens: 1 });
+    g.debug.god = true;
+    const p = g.player;
+    p.money = 16000;
+    const r = {};
+    r.mp5 = g.buy('mp5');
+    r.mp5Key = p.loadout.primary ? p.loadout.primary.key : null;
+    r.m3 = g.buy('m3');
+    r.m3Key = p.loadout.primary ? p.loadout.primary.key : null;
+    r.helmetNoArmor = g.buy('helmet');
+    r.armor = g.buy('armor');
+    r.helmet = g.buy('helmet');
+    r.spent = 16000 - p.money;
+    const bot = g.bots[0];
+    bot.body.pos.set(p.body.pos.x + 1.4, p.body.pos.y, p.body.pos.z + 1.4);
+    bot.armor = 0; bot.helmet = true; bot.health = 500;
+    p.loadout.secondary = new g.weaponNS.WeaponInst('usp');
+    p._equip(2);
+    let origin = p.eyePos();
+    let dir = bot.eyePos().clone().sub(origin).normalize();
+    g.weaponNS.fireWeapon(g, p, p.cur, origin, dir);
+    r.hsHelmet = 500 - bot.health;
+    bot.helmet = false; bot.health = 500;
+    p.cur.cd = 0;
+    origin = p.eyePos();
+    dir = bot.eyePos().clone().sub(origin).normalize();
+    g.weaponNS.fireWeapon(g, p, p.cur, origin, dir);
+    r.hsNoHelmet = 500 - bot.health;
+    p.loadout.primary = new g.weaponNS.WeaponInst('m3');
+    p._equip(1);
+    bot.helmet = false; bot.health = 500; bot.armor = 0;
+    origin = p.eyePos();
+    dir = bot.eyePos().clone().sub(origin).normalize();
+    g.weaponNS.fireWeapon(g, p, p.cur, origin, dir);
+    r.sgDmg = 500 - bot.health;
+    bot.money = 5000; bot.armor = 0; bot.helmet = false; bot.loadout.primary = null;
+    g.roundNum = 3;
+    g.botBuy(bot);
+    r.botArmor = bot.armor;
+    r.botHelmet = bot.helmet;
+    r.botGun = bot.loadout.primary ? bot.loadout.primary.key : 'none';
+    return r;
+  });
+  const w2Ok = weapons2.mp5 && weapons2.mp5Key === 'mp5' && weapons2.m3 && weapons2.m3Key === 'm3' &&
+    !weapons2.helmetNoArmor && weapons2.armor && weapons2.helmet && weapons2.spent === 4050 &&
+    weapons2.hsHelmet === 60 && weapons2.hsNoHelmet === 120 && weapons2.sgDmg > 60 &&
+    weapons2.botArmor === 100 && weapons2.botHelmet;
+  if (!w2Ok) fail = true;
+  console.log(`[${w2Ok ? 'OK' : 'FAIL'}] MP5/M3/頭盔: spent=$${weapons2.spent} 頭盔爆頭${weapons2.hsHelmet}/無盔${weapons2.hsNoHelmet} 霰彈=${weapons2.sgDmg} bot盔=${weapons2.botHelmet}/${weapons2.botGun}`);
+
   console.log(`頁面錯誤: ${errors.length ? errors.join(' | ') : '無'}`);
   if (errors.length) fail = true;
   console.log(fail ? 'E2E FAIL' : 'E2E ALL PASS');

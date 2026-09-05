@@ -70,6 +70,7 @@ export class Bot {
     this.body.blockBullets = true;
     this.health = 100;
     this.armor = 0;
+    this.helmet = false;
     this.money = 800;
     this.kills = 0;
     this.deaths = 0;
@@ -145,6 +146,7 @@ export class Bot {
     if (!keepGuns || !this.loadout.primary) {
       this.loadout = { primary: null, secondary: new WeaponInst('usp'), knife: new WeaponInst('knife'), grenades: { he: null, smoke: null, flash: null, molotov: null } };
       this.armor = 0;
+      this.helmet = false;
       this.plantSite = Math.random() < 0.5 ? 'A' : 'B';
     } else {
       for (const t of ['he', 'smoke', 'flash', 'molotov']) this.loadout.grenades[t] = null;

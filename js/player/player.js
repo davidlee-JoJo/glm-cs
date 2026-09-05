@@ -41,6 +41,20 @@ function buildVM(key) {
     else g.add(part(darkMetal(), 0.03, 0.06, 0.18, 0, 0.07, -0.2));
     g.userData.muzzle = new THREE.Vector3(0, 0.02, -0.66);
     g.userData.base = new THREE.Vector3(0.3, -0.3, -0.55);
+  } else if (key === 'mp5') {
+    g.add(part(darkMetal(), 0.05, 0.09, 0.42, 0, 0, -0.08));
+    g.add(part(gunMetal(), 0.045, 0.045, 0.16, 0, 0.01, -0.36));
+    g.add(part(darkMetal(), 0.04, 0.18, 0.07, 0, -0.12, -0.06, 0.18));
+    g.add(part(darkMetal(), 0.045, 0.1, 0.14, 0, -0.05, 0.16));
+    g.userData.muzzle = new THREE.Vector3(0, 0.02, -0.46);
+    g.userData.base = new THREE.Vector3(0.3, -0.31, -0.5);
+  } else if (key === 'm3') {
+    g.add(part(darkMetal(), 0.055, 0.06, 0.62, 0, 0.02, -0.16));
+    g.add(part(gunMetal(), 0.045, 0.045, 0.5, 0, -0.05, -0.2));
+    g.add(part(woodMat(), 0.05, 0.09, 0.16, 0, -0.05, -0.3));
+    g.add(part(woodMat(), 0.05, 0.14, 0.2, 0, -0.06, 0.22, 0.3));
+    g.userData.muzzle = new THREE.Vector3(0, -0.03, -0.48);
+    g.userData.base = new THREE.Vector3(0.3, -0.31, -0.52);
   } else if (key === 'awp') {
     g.add(part(greenMat(), 0.06, 0.11, 0.8, 0, 0, -0.2));
     g.add(part(darkMetal(), 0.03, 0.04, 0.35, 0, 0.03, -0.65));
@@ -81,6 +95,7 @@ export class Player {
     this.body.blockBullets = true;
     this.health = 100;
     this.armor = 0;
+    this.helmet = false;
     this.money = 800;
     this.kills = 0;
     this.deaths = 0;
@@ -114,7 +129,7 @@ export class Player {
   }
 
   _buildVMs() {
-    for (const key of ['usp', 'deagle', 'ak47', 'm4a4', 'awp', 'knife', 'hegrenade', 'smoke', 'flash', 'molotov']) {
+    for (const key of ['usp', 'deagle', 'mp5', 'm3', 'ak47', 'm4a4', 'awp', 'knife', 'hegrenade', 'smoke', 'flash', 'molotov']) {
       const vm = buildVM(key);
       vm.visible = false;
       this.vms[key] = vm;
@@ -147,6 +162,7 @@ export class Player {
         grenades: { he: null, smoke: null, flash: null, molotov: null }
       };
       this.armor = 0;
+      this.helmet = false;
       this.nadeType = 'he';
     } else {
       for (const inst of [this.loadout.primary, this.loadout.secondary, this.loadout.knife]) {

@@ -120,9 +120,11 @@ export class Menu {
       const div = document.createElement('div');
       div.className = 'buy-item';
       const owned = item.defKey === 'armor' ? p.armor >= 100 :
+        item.defKey === 'helmet' ? !!p.helmet :
         (item.slot === 'grenade' ? !!(p.loadout.grenades[NADE_BY_DEFKEY[item.defKey]]) :
           p.loadout[item.slot] && p.loadout[item.slot].key === item.defKey);
-      const cant = p.money < item.price || owned;
+      const cant = p.money < item.price || owned ||
+        (item.defKey === 'helmet' && p.armor < 100);
       if (cant) div.classList.add('cant');
       if (owned) div.classList.add('owned');
       div.innerHTML = `<span>${def.name}</span><span class="price">${owned ? '已擁有' : '$' + item.price}</span>`;

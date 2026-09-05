@@ -29,6 +29,18 @@ export const WEAPONS = {
     recoilV: 0.017, recoilH: 0.009, auto: true, range: 200, speedMul: 0.9,
     price: 3100, sound: 'rifle', killReward: 300
   },
+  mp5: {
+    key: 'mp5', name: 'MP5-SD', kind: 'gun', dmg: 26, headMult: 4,
+    rate: 0.09, mag: 30, reserve: 120, reload: 2.4, spread: 0.012, moveSpread: 0.028,
+    recoilV: 0.012, recoilH: 0.007, auto: true, range: 150, speedMul: 0.96,
+    price: 1500, sound: 'smg', killReward: 300
+  },
+  m3: {
+    key: 'm3', name: 'M3 霰彈槍', kind: 'gun', dmg: 11, headMult: 2, pellets: 8,
+    rate: 0.95, mag: 8, reserve: 32, reload: 3.2, spread: 0.05, moveSpread: 0.07,
+    recoilV: 0.045, recoilH: 0.012, auto: false, range: 45, speedMul: 0.92,
+    price: 1200, sound: 'shotgun', killReward: 300
+  },
   awp: {
     key: 'awp', name: 'AWP', kind: 'gun', dmg: 115, headMult: 2,
     rate: 1.4, mag: 5, reserve: 30, reload: 3.6, spread: 0.0015, moveSpread: 0.08,
@@ -59,6 +71,8 @@ export const DEF_BY_NADE = { he: 'hegrenade', smoke: 'smoke', flash: 'flash', mo
 
 export const BUY_LIST = [
   { defKey: 'deagle', slot: 'secondary', price: 700 },
+  { defKey: 'mp5', slot: 'primary', price: 1500 },
+  { defKey: 'm3', slot: 'primary', price: 1200 },
   { defKey: 'ak47', slot: 'primary', price: 2700 },
   { defKey: 'm4a4', slot: 'primary', price: 3100 },
   { defKey: 'awp', slot: 'primary', price: 4750 },
@@ -66,7 +80,8 @@ export const BUY_LIST = [
   { defKey: 'smoke', slot: 'grenade', price: 300 },
   { defKey: 'flash', slot: 'grenade', price: 200 },
   { defKey: 'molotov', slot: 'grenade', price: 600 },
-  { defKey: 'armor', slot: 'gear', price: 1000 }
+  { defKey: 'armor', slot: 'gear', price: 1000 },
+  { defKey: 'helmet', slot: 'gear', price: 350 }
 ];
 
 export class WeaponInst {
@@ -180,27 +195,50 @@ export function fireWeapon(game, shooter, inst, origin, dir, opts = {}) {
   inst.cd = def.rate;
 
   const spread = (opts.spread !== undefined ? opts.spread : currentSpread(shooter, def)) + (opts.extraSpread || 0);
-  const shootDir = jitterDir(dir, spread);
-  const hit = game.physics.raycast(origin, shootDir, def.range, { skipBody: shooter.body });
   const muzzle = origin.clone().addScaledVector(dir, 0.5);
+  let hitAny = false, hsAny = false;
 
-  if (hit) {
-    game.fx.tracer(muzzle, hit.point);
-    if (hit.type === 'body') {
-      const victim = hit.body.owner;
-      const falloff = Math.max(0.7, 1 - hit.dist * 0.002);
-      let dmg = def.dmg * falloff;
-      if (hit.headshot) dmg *= def.headMult;
-      game.applyHit(victim, dmg, shooter, hit.headshot, def, hit.point);
-    } else {
-      game.fx.impact(hit.point, hit.normal);
+  if (def.pellets) {
+    for (let i = 0; i < def.pellets; i++) {
+      const sd = jitterDir(dir, spread);
+      const h = game.physics.raycast(origin, sd, def.range, { skipBody: shooter.body });
+      if (h) {
+        game.fx.tracer(muzzle, h.point);
+        if (h.type === 'body') {
+          const falloff = Math.max(0.3, 1 - h.dist * 0.02);
+          let dmg = def.dmg * falloff;
+          if (h.headshot) dmg *= h.body.owner && h.body.owner.helmet ? Math.min(2, def.headMult) : def.headMult;
+          game.applyHit(h.body.owner, dmg, shooter, h.headshot, def, h.point);
+          hitAny = true;
+          if (h.headshot) hsAny = true;
+        } else game.fx.impact(h.point, h.normal);
+      } else {
+        game.fx.tracer(muzzle, origin.clone().addScaledVector(sd, def.range));
+      }
     }
   } else {
-    game.fx.tracer(muzzle, origin.clone().addScaledVector(shootDir, def.range));
+    const shootDir = jitterDir(dir, spread);
+    const hit = game.physics.raycast(origin, shootDir, def.range, { skipBody: shooter.body });
+    if (hit) {
+      game.fx.tracer(muzzle, hit.point);
+      if (hit.type === 'body') {
+        const victim = hit.body.owner;
+        const falloff = Math.max(0.7, 1 - hit.dist * 0.002);
+        let dmg = def.dmg * falloff;
+        if (hit.headshot) dmg *= victim.helmet ? Math.min(2, def.headMult) : def.headMult;
+        game.applyHit(victim, dmg, shooter, hit.headshot, def, hit.point);
+        hitAny = true;
+        hsAny = hit.headshot;
+      } else {
+        game.fx.impact(hit.point, hit.normal);
+      }
+    } else {
+      game.fx.tracer(muzzle, origin.clone().addScaledVector(shootDir, def.range));
+    }
   }
 
   game.audio.shot(def.sound, game.distToPlayer(origin));
   game.alertBots(origin, shooter);
   shooter.lastShotT = game.time;
-  return { hit: !!hit && hit.type === 'body', headshot: hit ? hit.headshot : false };
+  return { hit: hitAny, headshot: hsAny };
 }
