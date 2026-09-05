@@ -529,6 +529,7 @@ export class Game {
       bot.resetForRound(spawn, wasAlive);
       this.botBuy(bot, survival);
     }
+    this.players = [this.player, ...this.bots];
 
     this.bomb = {
       state: 'idle', carrier: null, pos: new THREE.Vector3(), timer: 0, site: null, beepT: 0

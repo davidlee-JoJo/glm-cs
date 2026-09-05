@@ -241,5 +241,6 @@ export function fireWeapon(game, shooter, inst, origin, dir, opts = {}) {
   game.audio.shot(def.sound, game.distToPlayer(origin), game.panFor(origin));
   game.alertBots(origin, shooter);
   shooter.lastShotT = game.time;
+  shooter.lastShotPos = origin.clone();
   return { hit: hitAny, headshot: hsAny };
 }

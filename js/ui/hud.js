@@ -156,14 +156,21 @@ export class HUD {
     for (const e of game.players) {
       if (e === p || !e.alive) continue;
       const isEnemy = e.team !== p.team;
+      let px = e.body.pos.x, pz = e.body.pos.z, heard = false;
       if (isEnemy) {
-        const visible = this.visCache.get(e) || (game.time - e.lastShotT < 2);
-        if (!visible) continue;
+        if (this.visCache.get(e)) {
+          px = e.body.pos.x; pz = e.body.pos.z;
+        } else if (game.time - e.lastShotT < 1.5 && e.lastShotPos) {
+          px = e.lastShotPos.x; pz = e.lastShotPos.z;
+          heard = true;
+        } else continue;
       }
       ctx.fillStyle = e.team === 'T' ? '#e8b45a' : '#6ea8ff';
+      ctx.globalAlpha = heard ? 0.55 : 1;
       ctx.beginPath();
-      ctx.arc(tx(e.body.pos.x), tz(e.body.pos.z), 3.2, 0, 7);
+      ctx.arc(tx(px), tz(pz), heard ? 2.6 : 3.2, 0, 7);
       ctx.fill();
+      ctx.globalAlpha = 1;
     }
 
     if (game.bomb && (game.bomb.state === 'planted' || game.bomb.state === 'dropped')) {

@@ -83,6 +83,7 @@ export class Bot {
     this.blindT = 0;
     this.nadeCd = 5;
     this.lastShotT = -99;
+    this.lastShotPos = null;
 
     this.state = 'patrol';
     this.stateT = 0;

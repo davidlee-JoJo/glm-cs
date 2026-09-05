@@ -119,6 +119,7 @@ export class Player {
     this.nadeType = 'he';
     this.blindT = 0;
     this.lastShotT = -99;
+    this.lastShotPos = null;
     this.vms = {};
     this.vmGroup = new THREE.Group();
     this.muzzleLight = new THREE.PointLight(0xffd88a, 0, 3);

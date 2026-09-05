@@ -454,6 +454,71 @@ const puppeteer = require('puppeteer-core');
   if (!b6Ok) fail = true;
   console.log(`[${b6Ok ? 'OK' : 'FAIL'}] 音效定位+連殺+死亡鏡頭: panR=${b6.panRight.toFixed(2)} panL=${b6.panLeft.toFixed(2)} 連殺=${b6.streak}(${b6.banner}) 死亡鏡頭=${b6.dcam}→結束=${b6.dcamEnd}`);
 
+  const mmFix = await page.evaluate(async () => {
+    const g = window.__glmcs_game;
+    g.startMatch({ mode: 'survival', difficulty: 'normal', ctBots: 0, tBots: 0, map: 'dust', sens: 1 });
+    g.debug.god = true;
+    const r = {};
+    for (const b of g.bots.filter((x) => x.team === 'T')) g.onKill(g.player, b, g.weaponNS.WEAPONS.usp, false);
+    const t0 = performance.now();
+    while (performance.now() - t0 < 24000 && g.roundNum < 2) await new Promise((res) => setTimeout(res, 200));
+    r.wave2 = g.roundNum === 2;
+    r.rosterSync = g.players.filter((p) => p.team === 'T').length === g.bots.filter((b) => b.team === 'T').length;
+    const t1 = performance.now();
+    while (performance.now() - t1 < 15000 && g.state !== 'live') await new Promise((res) => setTimeout(res, 200));
+    await new Promise((res) => setTimeout(res, 2500));
+    r.noAutoSkip = g.state === 'live' && g.roundNum === 2 && g.players.some((p) => p.team === 'T' && p.alive);
+    const bot = g.bots.find((b) => b.team === 'T' && b.alive);
+    const pe = g.player.eyePos();
+    let spot = null;
+    for (const pt of g.map.patrol) {
+      if (Math.hypot(pt.x - pe.x, pt.z - pe.z) < 20) continue;
+      bot.body.pos.set(pt.x, 0.95, pt.z);
+      if (!g.physics.losClear(pe, bot.eyePos())) { spot = pt; break; }
+    }
+    r.occluded = !!spot;
+    if (spot) {
+      bot.state = 'patrol';
+      bot.blindT = 99;
+      bot.idleT = 999;
+      bot.target = null;
+      bot.alertPos = null;
+      bot.path = null;
+      bot.goal = null;
+      await new Promise((res) => setTimeout(res, 500));
+      const ctx2 = g.hud.el.minimap.getContext('2d');
+      const isOrange = (d) => d[3] > 0 && d[0] > 130 && d[0] - d[2] > 60 && d[1] - d[2] > 20;
+      const sample = (x, z) => {
+        const xi = Math.max(0, Math.min(167, Math.round(g.hud._tx(x))));
+        const zi = Math.max(0, Math.min(167, Math.round(g.hud._tz(z))));
+        return ctx2.getImageData(xi, zi, 1, 1).data;
+      };
+      const d0 = sample(bot.body.pos.x, bot.body.pos.z);
+      r.hiddenBefore = !isOrange(d0);
+      r.diag0 = `a${d0[3]},rgb${d0[0]},${d0[1]},${d0[2]},visCache=${g.hud.visCache.get(bot)},shotDt=${(g.time - bot.lastShotT).toFixed(1)}`;
+      bot.cur.cd = 0;
+      const dir = new (g.player.body.pos.constructor)(pe.x - bot.body.pos.x, 0, pe.z - bot.body.pos.z).normalize();
+      g.weaponNS.fireWeapon(g, bot, bot.cur, bot.eyePos(), dir);
+      const shotX = bot.lastShotPos.x, shotZ = bot.lastShotPos.z;
+      await new Promise((res) => setTimeout(res, 200));
+      const d1 = sample(shotX, shotZ);
+      r.heardDot = isOrange(d1);
+      await new Promise((res) => setTimeout(res, 2200));
+      const d2 = sample(shotX, shotZ);
+      r.dotExpired = !isOrange(d2);
+      r.diag2 = `a${d2[3]},rgb${d2[0]},${d2[1]},${d2[2]},shotDt=${(g.time - bot.lastShotT).toFixed(1)}`;
+    }
+    return r;
+  });
+  const mmOk = mmFix.wave2 && mmFix.rosterSync && mmFix.noAutoSkip && mmFix.occluded &&
+    mmFix.hiddenBefore && mmFix.heardDot && mmFix.dotExpired;
+  if (!mmOk) fail = true;
+  console.log(`[${mmOk ? 'OK' : 'FAIL'}] 生存名單+小地圖: 第2波=${mmFix.wave2} 名單同步=${mmFix.rosterSync} 不自動跳波=${mmFix.noAutoSkip} 遮蔽=${mmFix.occluded} 隱藏敵無點=${mmFix.hiddenBefore} 槍聲亮點=${mmFix.heardDot} 1.5s消退=${mmFix.dotExpired}`);
+  if (!mmOk) {
+    console.log(`  diag0: ${mmFix.diag0}`);
+    console.log(`  diag2: ${mmFix.diag2}`);
+  }
+
   console.log(`頁面錯誤: ${errors.length ? errors.join(' | ') : '無'}`);
   if (errors.length) fail = true;
   console.log(fail ? 'E2E FAIL' : 'E2E ALL PASS');
