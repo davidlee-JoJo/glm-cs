@@ -36,7 +36,7 @@ export const WEAPONS = {
     price: 1500, sound: 'smg', killReward: 300
   },
   m3: {
-    key: 'm3', name: 'M3 霰彈槍', kind: 'gun', dmg: 11, headMult: 2, pellets: 8,
+    key: 'm3', name: 'M3 霰彈槍', kind: 'gun', dmg: 17, headMult: 2, pellets: 8,
     rate: 0.95, mag: 8, reserve: 32, reload: 3.2, spread: 0.05, moveSpread: 0.07,
     recoilV: 0.045, recoilH: 0.012, auto: false, range: 45, speedMul: 0.92,
     price: 1200, sound: 'shotgun', killReward: 300
@@ -206,7 +206,7 @@ export function fireWeapon(game, shooter, inst, origin, dir, opts = {}) {
       if (h) {
         game.fx.tracer(muzzle, h.point);
         if (h.type === 'body') {
-          const falloff = Math.max(0.3, 1 - h.dist * 0.02);
+          const falloff = h.dist <= 3.5 ? 1 : Math.max(0.2, 1 - (h.dist - 3.5) * 0.05);
           let dmg = def.dmg * falloff;
           if (h.headshot) dmg *= h.body.owner && h.body.owner.helmet ? Math.min(2, def.headMult) : def.headMult;
           game.applyHit(h.body.owner, dmg, shooter, h.headshot, def, h.point);

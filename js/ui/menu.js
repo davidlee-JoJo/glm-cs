@@ -100,8 +100,10 @@ export class Menu {
   openBuy() {
     this.buyOpen = true;
     this.el.buy.classList.remove('hidden');
-    this._renderBuy();
+    this.game.input.clearButtons();
     this.game.input.exitLock();
+    this._buildBuyList();
+    this.refreshBuy();
   }
 
   closeBuy() {
@@ -110,30 +112,43 @@ export class Menu {
     this.game.input.requestLock(this.game.engine.renderer.domElement);
   }
 
-  _renderBuy() {
+  _buyOwned(item) {
     const p = this.game.player;
-    this.el.buyMoney.textContent = `$${p.money}`;
-    this.el.buyTimer.textContent = `購買時間 ${Math.max(0, Math.ceil(this.game.buyTimeLeft))}s`;
+    if (item.defKey === 'armor') return p.armor >= 100;
+    if (item.defKey === 'helmet') return !!p.helmet;
+    if (item.slot === 'grenade') return !!p.loadout.grenades[NADE_BY_DEFKEY[item.defKey]];
+    return !!(p.loadout[item.slot] && p.loadout[item.slot].key === item.defKey);
+  }
+
+  _buildBuyList() {
     this.el.buyItems.innerHTML = '';
     for (const item of BUY_LIST) {
-      const def = item.defKey === 'armor' ? { name: '防彈衣' } : WEAPONS[item.defKey];
+      const def = item.defKey === 'armor' ? { name: '防彈衣' } :
+        item.defKey === 'helmet' ? { name: '防彈頭盔' } : WEAPONS[item.defKey];
       const div = document.createElement('div');
       div.className = 'buy-item';
-      const owned = item.defKey === 'armor' ? p.armor >= 100 :
-        item.defKey === 'helmet' ? !!p.helmet :
-        (item.slot === 'grenade' ? !!(p.loadout.grenades[NADE_BY_DEFKEY[item.defKey]]) :
-          p.loadout[item.slot] && p.loadout[item.slot].key === item.defKey);
-      const cant = p.money < item.price || owned ||
-        (item.defKey === 'helmet' && p.armor < 100);
-      if (cant) div.classList.add('cant');
-      if (owned) div.classList.add('owned');
-      div.innerHTML = `<span>${def.name}</span><span class="price">${owned ? '已擁有' : '$' + item.price}</span>`;
+      div.dataset.key = item.defKey;
+      div.innerHTML = `<span>${def.name}</span><span class="price"></span>`;
       div.addEventListener('click', () => {
-        if (this.game.buy(item.defKey)) this._renderBuy();
+        if (this.game.buy(item.defKey)) this.refreshBuy();
       });
       this.el.buyItems.appendChild(div);
     }
   }
 
-  refreshBuy() { if (this.buyOpen) this._renderBuy(); }
+  refreshBuy() {
+    if (!this.buyOpen) return;
+    const p = this.game.player;
+    this.el.buyMoney.textContent = `$${p.money}`;
+    this.el.buyTimer.textContent = `購買時間 ${Math.max(0, Math.ceil(this.game.buyTimeLeft))}s`;
+    for (const item of BUY_LIST) {
+      const div = this.el.buyItems.querySelector(`[data-key="${item.defKey}"]`);
+      if (!div) continue;
+      const owned = this._buyOwned(item);
+      const cant = p.money < item.price || owned || (item.defKey === 'helmet' && p.armor < 100);
+      div.classList.toggle('cant', cant);
+      div.classList.toggle('owned', owned);
+      div.querySelector('.price').textContent = owned ? '已擁有' : '$' + item.price;
+    }
+  }
 }

@@ -269,6 +269,12 @@ const puppeteer = require('puppeteer-core');
     dir = bot.eyePos().clone().sub(origin).normalize();
     g.weaponNS.fireWeapon(g, p, p.cur, origin, dir);
     r.sgDmg = 500 - bot.health;
+    bot.health = 100; bot.armor = 0; bot.helmet = false;
+    p.cur.cd = 0;
+    origin = p.eyePos();
+    dir = bot.body.pos.clone().sub(origin).normalize();
+    g.weaponNS.fireWeapon(g, p, p.cur, origin, dir);
+    r.sgKill = !bot.alive;
     bot.money = 5000; bot.armor = 0; bot.helmet = false; bot.loadout.primary = null;
     g.roundNum = 3;
     g.botBuy(bot);
@@ -279,10 +285,37 @@ const puppeteer = require('puppeteer-core');
   });
   const w2Ok = weapons2.mp5 && weapons2.mp5Key === 'mp5' && weapons2.m3 && weapons2.m3Key === 'm3' &&
     !weapons2.helmetNoArmor && weapons2.armor && weapons2.helmet && weapons2.spent === 4050 &&
-    weapons2.hsHelmet === 60 && weapons2.hsNoHelmet === 120 && weapons2.sgDmg > 60 &&
+    weapons2.hsHelmet === 60 && weapons2.hsNoHelmet === 120 && weapons2.sgDmg > 60 && weapons2.sgKill &&
     weapons2.botArmor === 100 && weapons2.botHelmet;
   if (!w2Ok) fail = true;
-  console.log(`[${w2Ok ? 'OK' : 'FAIL'}] MP5/M3/頭盔: spent=$${weapons2.spent} 頭盔爆頭${weapons2.hsHelmet}/無盔${weapons2.hsNoHelmet} 霰彈=${weapons2.sgDmg} bot盔=${weapons2.botHelmet}/${weapons2.botGun}`);
+  console.log(`[${w2Ok ? 'OK' : 'FAIL'}] MP5/M3/頭盔: spent=$${weapons2.spent} 頭盔爆頭${weapons2.hsHelmet}/無盔${weapons2.hsNoHelmet} 霰彈=${weapons2.sgDmg} 3m一擊必殺=${weapons2.sgKill} bot盔=${weapons2.botHelmet}/${weapons2.botGun}`);
+
+  const buyUi = await page.evaluate(() => {
+    const g = window.__glmcs_game;
+    g.startMatch({ mode: 'elim', difficulty: 'normal', ctBots: 0, tBots: 1, map: 'dust', sens: 1 });
+    g.player.money = 5000;
+    g.menu.openBuy();
+    return {
+      items: document.querySelectorAll('#buy-items .buy-item').length,
+      unlocked: !g.input.locked && document.pointerLockElement === null
+    };
+  });
+  const moneyBefore = await page.evaluate(() => window.__glmcs_game.player.money);
+  await page.click('#buy-items [data-key="smoke"]');
+  await new Promise((r) => setTimeout(r, 300));
+  const buyUi2 = await page.evaluate(() => {
+    const g = window.__glmcs_game;
+    const smokeItem = document.querySelector('#buy-items [data-key="smoke"]');
+    return {
+      money: g.player.money,
+      owned: smokeItem.classList.contains('owned'),
+      unlockedNow: !g.input.locked && document.pointerLockElement === null,
+      noFatal: !document.getElementById('msg-title').textContent.includes('發生錯誤')
+    };
+  });
+  const buyUiOk = buyUi.items === 12 && buyUi2.unlockedNow && buyUi2.money === moneyBefore - 300 && buyUi2.owned && buyUi2.noFatal;
+  if (!buyUiOk) fail = true;
+  console.log(`[${buyUiOk ? 'OK' : 'FAIL'}] 購買選單互動: 項目=${buyUi.items} 解除鎖定=${buyUi2.unlockedNow} 點擊購買=${moneyBefore}→${buyUi2.money} 已擁有=${buyUi2.owned}`);
 
   const dmTest = await page.evaluate(async () => {
     const g = window.__glmcs_game;
@@ -297,6 +330,7 @@ const puppeteer = require('puppeteer-core');
     r.buyAnytime = g.canBuy();
     const bot = g.bots[0];
     const deathPos = bot.body.pos.clone();
+    g.player.kills = 0;
     g.onKill(g.player, bot, g.weaponNS.WEAPONS.usp, false);
     r.killCounted = g.player.kills === 1;
     r.respawnScheduled = bot.respawnT === 3 && !bot.alive;
