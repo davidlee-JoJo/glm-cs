@@ -3,10 +3,9 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const MODEL_URLS = {
-  CT: { url: 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/models/gltf/Soldier.glb', type: 'soldier' },
-  T: { url: 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/models/gltf/Xbot.glb', type: 'xbot' }
+  CT: { url: 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/models/gltf/Soldier.glb', type: 'soldier', yaw: 0, tint: 0x4a7ac8 },
+  T: { url: 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/models/gltf/Xbot.glb', type: 'xbot', yaw: Math.PI, tint: 0xd06838 }
 };
-const TINT = { T: 0xd06838, CT: 0x4a7ac8 };
 
 const cache = new Map();
 function loadModel(url) {
@@ -39,6 +38,33 @@ function pickClip(clips, key, fallbackIdx) {
   return clips[fallbackIdx] || null;
 }
 
+function findBone(root, re) {
+  let found = null;
+  root.traverse((o) => {
+    if (!found && o.isBone && re.test(o.name)) found = o;
+  });
+  return found;
+}
+
+function buildHeadgear(team) {
+  if (team === 'CT') {
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(0.125, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshLambertMaterial({ color: 0x2c3e58 })
+    );
+    m.position.y = 0.06;
+    m.castShadow = true;
+    return m;
+  }
+  const m = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.118, 0.118, 0.055, 14),
+    new THREE.MeshLambertMaterial({ color: 0xc04830 })
+  );
+  m.position.y = 0.1;
+  m.castShadow = true;
+  return m;
+}
+
 export async function buildCharacter(team) {
   const cfg = MODEL_URLS[team];
   const gltf = await loadModel(cfg.url);
@@ -49,6 +75,7 @@ export async function buildCharacter(team) {
   } catch (e) {
     return null;
   }
+  obj.rotation.y = cfg.yaw;
   const box = skinnedBox(obj);
   const size = box.getSize(new THREE.Vector3());
   const s = Math.min(1.25, Math.max(0.8, 1.78 / Math.max(size.y, 0.001)));
@@ -56,32 +83,30 @@ export async function buildCharacter(team) {
   const box2 = skinnedBox(obj);
   const c = box2.getCenter(new THREE.Vector3());
   obj.position.set(-c.x, -box2.min.y, -c.z);
-  const tint = new THREE.Color(TINT[team]);
+  const tint = new THREE.Color(cfg.tint);
   obj.traverse((o) => {
     if (o.isMesh) {
       o.castShadow = true;
       if (Array.isArray(o.material)) {
         o.material = o.material.map((m) => {
           const cm = m.clone();
-          cm.color = cm.color.clone().lerp(tint, 0.45);
+          cm.color = cm.color.clone().lerp(tint, 0.3);
           return cm;
         });
       } else {
         const cm = o.material.clone();
-        cm.color = cm.color.clone().lerp(tint, 0.45);
+        cm.color = cm.color.clone().lerp(tint, 0.3);
         o.material = cm;
       }
     }
   });
-  const gun = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.11, 0.62), new THREE.MeshLambertMaterial({ color: 0x1c1f24 }));
-  gun.position.set(0.15, 1.22, -0.3);
-  gun.rotation.x = 0.08;
-  gun.castShadow = true;
-  obj.add(gun);
-  const vest = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.36, 0.28), new THREE.MeshLambertMaterial({ color: TINT[team] }));
-  vest.position.set(0, 1.18, 0.02);
-  vest.castShadow = true;
-  obj.add(vest);
+  const head = findBone(obj, /head$/i) || findBone(obj, /head/i);
+  const hat = buildHeadgear(team);
+  if (head) head.add(hat);
+  else {
+    hat.position.set(0, 1.62, 0);
+    obj.add(hat);
+  }
   const clips = gltf.animations || [];
   return {
     obj,

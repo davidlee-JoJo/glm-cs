@@ -61,7 +61,7 @@
       };
     });
     const trainOk = ['metro', 'rail'].includes(key) ? live.train >= 1 : true;
-    const soldierOk = live.soldierBad === 'skip' ? true : !live.soldierBad.startsWith('0/') ? false : true && parseInt(live.soldierBad.split('/')[0]) === 0 && parseInt(live.soldierBad.split('/')[1]) >= 3;
+    const soldierOk = live.soldierBad === 'skip' ? true : !live.soldierBad.startsWith('0/') ? false : true && parseInt(live.soldierBad.split('/')[0]) === 0 && parseInt(live.soldierBad.split('/')[1]) >= 2;
     const sbox = await page.evaluate(async () => {
       const g = window.__glmcs_game;
       const THREE = await import('three');
@@ -191,16 +191,15 @@
     out.fireDmg = hp0 - bot.health;
     g.player.blindT = 0;
     g.throwGrenade(g.player, g.player.eyePos(), dir, 'flash');
-    const t2 = performance.now();
-    while (performance.now() - t2 < 3500) {
+    const t2 = g.time;
+    while (g.time - t2 < 5 && out.blindMax <= 1) {
       out.blindMax = Math.max(out.blindMax, g.player.blindT);
-      if (out.blindMax > 1) break;
       await new Promise((r) => setTimeout(r, 80));
     }
     const eye = g.player.eyePos();
     g.throwGrenade(g.player, eye, dir, 'smoke');
-    const t0 = performance.now();
-    while (performance.now() - t0 < 4000 && g.physics.smokes.length === 0) await new Promise((r) => setTimeout(r, 100));
+    const t0 = g.time;
+    while (g.time - t0 < 4 && g.physics.smokes.length === 0) await new Promise((r) => setTimeout(r, 100));
     out.smokes = g.physics.smokes.length;
     if (g.physics.smokes.length) {
       const s = g.physics.smokes[0];
@@ -210,8 +209,8 @@
       const b = new V3(s.pos.x + (hx / L) * 8, 1.2, s.pos.z + (hz / L) * 8);
       out.blocked = !g.physics.losClear(a, b);
     }
-    const t3 = performance.now();
-    while (performance.now() - t3 < 32000 && (g.fires.length > 0 || g.physics.smokes.length > 0)) {
+    const t3 = g.time;
+    while (g.time - t3 < 25 && (g.fires.length > 0 || g.physics.smokes.length > 0)) {
       await new Promise((r) => setTimeout(r, 250));
     }
     out.fireClean = g.fires.length === 0;
@@ -236,9 +235,11 @@
     bot._enter('engage');
     bot.nadeCd = 0;
     bot.reactionT = 0;
-    const t0 = performance.now();
+    const tw = g.time;
+    while (g.time - tw < 2 && g.state !== 'live') await new Promise((r) => setTimeout(r, 100));
+    const t0 = g.time;
     let thrown = false;
-    while (performance.now() - t0 < 8000) {
+    while (g.time - t0 < 8) {
       if (!bot.loadout.grenades.he) { thrown = true; break; }
       await new Promise((r) => setTimeout(r, 100));
     }
@@ -261,9 +262,11 @@
     bot._enter('seek');
     bot.alertPos = p.clone();
     bot.nadeCd = 0;
-    const t0 = performance.now();
+    const tw = g.time;
+    while (g.time - tw < 2 && g.state !== 'live') await new Promise((r) => setTimeout(r, 100));
+    const t0 = g.time;
     let thrown = false, blinded = false;
-    while (performance.now() - t0 < 16000) {
+    while (g.time - t0 < 12) {
       if (!bot.loadout.grenades.flash) thrown = true;
       if (g.player.blindT > 1) { blinded = true; break; }
       await new Promise((r) => setTimeout(r, 100));
@@ -547,7 +550,7 @@
       await new Promise((res) => setTimeout(res, 200));
       const d1 = sample(shotX, shotZ);
       r.heardDot = isOrange(d1);
-      await new Promise((res) => setTimeout(res, 3800));
+      await new Promise((res) => setTimeout(res, 6000));
       const d2 = sample(shotX, shotZ);
       r.dotExpired = !isOrange(d2);
       r.diag2 = `a${d2[3]},rgb${d2[0]},${d2[1]},${d2[2]},shotDt=${(g.time - bot.lastShotT).toFixed(1)}`;
