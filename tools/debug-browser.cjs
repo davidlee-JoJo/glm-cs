@@ -31,7 +31,7 @@ const puppeteer = require('puppeteer-core');
         fogFar: g.engine.scene.fog.far
       };
     }, key);
-    await new Promise((r) => setTimeout(r, 3000));
+    await new Promise((r) => setTimeout(r, 5000));
     const live = await page.evaluate(() => {
       const g = window.__glmcs_game;
       return {
@@ -40,12 +40,14 @@ const puppeteer = require('puppeteer-core');
         siteOk: ['siteA', 'siteB'].every((s) => {
           const c = g.map[s].center, cell = g.map.worldToCell(c.x, c.z);
           return g.map.walkable(cell.col, cell.row);
-        })
+        }),
+        props: g.map.propsGroup ? g.map.propsGroup.children.length : -1,
+        sky: g.map.meshes.some((m) => m.isMesh && m.material.side === 1)
       };
     });
-    const ok = info.mapKey === key && live.noFall && live.siteOk && live.alive >= 4;
+    const ok = info.mapKey === key && live.noFall && live.siteOk && live.alive >= 4 && live.props >= 8 && live.sky;
     if (!ok) fail = true;
-    console.log(`[${ok ? 'OK' : 'FAIL'}] ${key} (${info.name}) bg=0x${info.bg.toString(16)} fog=${info.fogFar} solids=${info.solids} 室內=${info.ceilings} 高台=${info.elevs} alive=${live.alive} noFall=${live.noFall} sites=${live.siteOk}`);
+    console.log(`[${ok ? 'OK' : 'FAIL'}] ${key} (${info.name}) bg=0x${info.bg.toString(16)} fog=${info.fogFar} solids=${info.solids} 室內=${info.ceilings} 高台=${info.elevs} alive=${live.alive} noFall=${live.noFall} sites=${live.siteOk} 道具=${live.props} 天空=${live.sky}`);
   }
 
   const counts = await page.evaluate(() => {

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CELL, WALKABLE } from './maps.js';
 import { buildMaterials, boxMesh, siteDecalTex, THEMES } from './materials.js';
+import { decorateMap } from './props.js';
 
 const WALL_H = 4.2;
 const CRATE_H = 1.0;
@@ -11,11 +12,12 @@ const CEIL_H = 3.6;
 const CEIL_TH = 0.4;
 
 export class GameMap {
-  constructor(engine, physics, def) {
+  constructor(engine, physics, def, key) {
     this.engine = engine;
     this.scene = engine.scene;
     this.physics = physics;
     this.def = def;
+    this.key = key;
     this.theme = THEMES[def.theme];
     this.cols = def.layout[0].length;
     this.rows = def.layout.length;
@@ -23,9 +25,12 @@ export class GameMap {
     this.rects = [];
     this.walk = [];
     this.meshes = [];
+    this.propsGroup = null;
+    this.disposed = false;
     this.navDirty = false;
 
-    const bg = new THREE.Color(this.theme.sky);
+    const skyBot = this.theme.skyBot !== undefined ? this.theme.skyBot : this.theme.sky;
+    const bg = new THREE.Color(skyBot);
     if (this.scene.background) this.scene.background.set(bg); else this.scene.background = bg;
     const fogN = def.fog ? def.fog[0] : this.theme.fogNear;
     const fogF = def.fog ? def.fog[1] : this.theme.fogFar;
@@ -47,11 +52,50 @@ export class GameMap {
     this._buildNav();
     this._buildSiteDecals();
     this._buildIndoor();
+    this._buildSky();
+    decorateMap(this, key).catch(() => {});
+  }
+
+  _buildSky() {
+    const t = this.theme;
+    const hex = (v) => '#' + v.toString(16).padStart(6, '0');
+    const top = t.skyTop !== undefined ? t.skyTop : 0x6f8cb0;
+    const bot = t.skyBot !== undefined ? t.skyBot : t.sky;
+    const c = document.createElement('canvas');
+    c.width = 16;
+    c.height = 256;
+    const ctx = c.getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0, hex(top));
+    grad.addColorStop(0.58, hex(bot));
+    grad.addColorStop(1, hex(bot));
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 16, 256);
+    if (t.stars) {
+      for (let i = 0; i < 110; i++) {
+        ctx.globalAlpha = 0.25 + Math.random() * 0.75;
+        ctx.fillStyle = Math.random() > 0.85 ? '#cfe0ff' : '#ffffff';
+        ctx.fillRect(Math.floor(Math.random() * 16), Math.floor(Math.random() * 118), 1, 1);
+      }
+      ctx.globalAlpha = 1;
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const dome = new THREE.Mesh(
+      new THREE.SphereGeometry(330, 24, 14),
+      new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false })
+    );
+    this._track(dome);
   }
 
   dispose() {
+    this.disposed = true;
     for (const m of this.meshes) this.scene.remove(m);
     this.meshes = [];
+    if (this.propsGroup) {
+      this.scene.remove(this.propsGroup);
+      this.propsGroup = null;
+    }
     this.physics.solids = [];
     this.rects = [];
   }

@@ -269,7 +269,7 @@ export class Game {
     });
     this.audio = new AudioSys();
     this.mapKey = 'dust';
-    this.map = new GameMap(this.engine, this.physics, MAPS.dust);
+    this.map = new GameMap(this.engine, this.physics, MAPS.dust, 'dust');
     this.hud = new HUD(this);
     this.debug = new Debug(this);
     this.debug.buildVisuals();
@@ -420,7 +420,7 @@ export class Game {
 
   rebuildMap(key) {
     this.map.dispose();
-    this.map = new GameMap(this.engine, this.physics, MAPS[key]);
+    this.map = new GameMap(this.engine, this.physics, MAPS[key], key);
     this.mapKey = key;
     this.hud.buildMinimapBase(this.map);
     this.debug.buildVisuals();

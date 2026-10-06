@@ -2,6 +2,7 @@ import * as THREE from 'three';
 
 export const THEMES = {
   dust: {
+    skyTop: 0x8aa5c8, skyBot: 0xd8cbb0,
     sky: 0xb9c6d8, fogNear: 55, fogFar: 175,
     light: { hemi: 1.05, sun: 1.9, sunColor: 0xfff1d6, shadow: 48 },
     floor: '#b39a68', floorLine: 'rgba(70,55,30,0.35)', floorPatch: 'rgba(60,45,25,0.15)',
@@ -10,6 +11,7 @@ export const THEMES = {
     metal: '#7e868c', concrete: '#9a9a92'
   },
   inferno: {
+    skyTop: 0x9db0c4, skyBot: 0xe2c9a4,
     sky: 0xcfb59a, fogNear: 50, fogFar: 160,
     light: { hemi: 1.0, sun: 1.8, sunColor: 0xffdfb0, shadow: 48 },
     floor: '#a58a66', floorLine: 'rgba(80,55,30,0.4)', floorPatch: 'rgba(70,50,28,0.18)',
@@ -18,6 +20,7 @@ export const THEMES = {
     metal: '#6d7a70', concrete: '#b0a08c'
   },
   nuke: {
+    skyTop: 0x7b93a8, skyBot: 0xc9d4da,
     sky: 0x8fa3b3, fogNear: 45, fogFar: 150,
     light: { hemi: 0.95, sun: 1.6, sunColor: 0xdde8f0, shadow: 48 },
     floor: '#85898d', floorLine: 'rgba(40,45,50,0.4)', floorPatch: 'rgba(50,55,60,0.2)',
@@ -26,6 +29,7 @@ export const THEMES = {
     metal: '#4e5860', concrete: '#909498'
   },
   snow: {
+    skyTop: 0xb8d0e8, skyBot: 0xeef4f8,
     sky: 0xe3ecf5, fogNear: 55, fogFar: 170,
     light: { hemi: 1.15, sun: 1.7, sunColor: 0xf0f6ff, shadow: 48 },
     floor: '#e9eef5', floorLine: 'rgba(150,165,185,0.3)', floorPatch: 'rgba(190,205,225,0.4)',
@@ -34,6 +38,7 @@ export const THEMES = {
     metal: '#8b98a6', concrete: '#c3cbd5'
   },
   fortress: {
+    skyTop: 0x8fa8b0, skyBot: 0xd4d6c4,
     sky: 0xa8b8ac, fogNear: 60, fogFar: 200,
     light: { hemi: 0.95, sun: 1.75, sunColor: 0xe8e4d0, shadow: 58 },
     floor: '#8f8a7d', floorLine: 'rgba(55,52,45,0.4)', floorPatch: 'rgba(45,42,36,0.18)',
@@ -42,6 +47,7 @@ export const THEMES = {
     metal: '#6e7470', concrete: '#a09a8d'
   },
   harbor: {
+    skyTop: 0x0c1526, skyBot: 0x33455e, stars: true,
     sky: 0x1c2740, fogNear: 38, fogFar: 130,
     light: { hemi: 0.5, sun: 0.55, sunColor: 0x8aa4d8, shadow: 58 },
     floor: '#4a5261', floorLine: 'rgba(20,24,32,0.5)', floorPatch: 'rgba(28,34,46,0.35)',
@@ -50,6 +56,7 @@ export const THEMES = {
     metal: '#3d4854', concrete: '#565e6a'
   },
   city: {
+    skyTop: 0x7d94a8, skyBot: 0xccd0d2,
     sky: 0x9aa8b0, fogNear: 60, fogFar: 210,
     light: { hemi: 1.0, sun: 1.65, sunColor: 0xe0e4da, shadow: 68 },
     floor: '#7d8078', floorLine: 'rgba(45,48,45,0.4)', floorPatch: 'rgba(38,40,38,0.18)',
