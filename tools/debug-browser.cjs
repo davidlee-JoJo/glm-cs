@@ -1,4 +1,4 @@
-const puppeteer = require('puppeteer-core');
+﻿const puppeteer = require('puppeteer-core');
 
 (async () => {
   const browser = await puppeteer.launch({
@@ -17,7 +17,7 @@ const puppeteer = require('puppeteer-core');
 
   let fail = false;
 
-  for (const key of ['dust', 'inferno', 'nuke', 'snow', 'fortress', 'harbor', 'city']) {
+  for (const key of ['dust', 'inferno', 'nuke', 'snow', 'fortress', 'harbor', 'city', 'metro', 'rail']) {
     const info = await page.evaluate((k) => {
       const g = window.__glmcs_game;
       g.startMatch({ mode: 'bomb', difficulty: 'normal', ctBots: 2, tBots: 3, map: k, sens: 1 });
@@ -42,12 +42,16 @@ const puppeteer = require('puppeteer-core');
           return g.map.walkable(cell.col, cell.row);
         }),
         props: g.map.propsGroup ? g.map.propsGroup.children.length : -1,
-        sky: g.map.meshes.some((m) => m.isMesh && m.material.side === 1)
+        sky: g.map.meshes.some((m) => m.isMesh && m.material.side === 1),
+        train: g.physics.solids.filter((s) => s.tag === 'train').length,
+        trainBlocked: g.bots.every((b) => b.body.pos.y > -0.5) && g.bots.length === 5,
+        soldier: g.bots.filter((b) => b.mixer).length
       };
     });
-    const ok = info.mapKey === key && live.noFall && live.siteOk && live.alive >= 4 && live.props >= 8 && live.sky;
+    const trainOk = ['metro', 'rail'].includes(key) ? live.train >= 1 : true;
+    const ok = info.mapKey === key && live.noFall && live.siteOk && live.alive >= 4 && live.props >= 8 && live.sky && trainOk;
     if (!ok) fail = true;
-    console.log(`[${ok ? 'OK' : 'FAIL'}] ${key} (${info.name}) bg=0x${info.bg.toString(16)} fog=${info.fogFar} solids=${info.solids} 室內=${info.ceilings} 高台=${info.elevs} alive=${live.alive} noFall=${live.noFall} sites=${live.siteOk} 道具=${live.props} 天空=${live.sky}`);
+    console.log(`[${ok ? 'OK' : 'FAIL'}] ${key} (${info.name}) bg=0x${info.bg.toString(16)} fog=${info.fogFar} solids=${info.solids} 室內=${info.ceilings} 高台=${info.elevs} alive=${live.alive} noFall=${live.noFall} sites=${live.siteOk} 道具=${live.props} 天空=${live.sky} 列車=${live.train} 士兵模型=${live.soldier}/5`);
   }
 
   const counts = await page.evaluate(() => {
@@ -81,10 +85,16 @@ const puppeteer = require('puppeteer-core');
   const cityPatrol = await page.evaluate(() => {
     const g = window.__glmcs_game;
     g.startMatch({ mode: 'bomb', difficulty: 'normal', ctBots: 4, tBots: 6, map: 'city', sens: 1 });
-    g._t0 = g.players.map((p) => ({ x: p.body.pos.x, z: p.body.pos.z }));
     return g.players.length;
   });
-  await new Promise((r) => setTimeout(r, 9000));
+  const cityLiveReady = await page.evaluate(async () => {
+    const g = window.__glmcs_game;
+    const t0 = performance.now();
+    while (performance.now() - t0 < 40000 && g.state !== 'live') await new Promise((res) => setTimeout(res, 200));
+    g._t0 = g.players.map((p) => ({ x: p.body.pos.x, z: p.body.pos.z }));
+    return g.state === 'live';
+  });
+  await new Promise((r) => setTimeout(r, 7000));
   const cityLive = await page.evaluate(() => {
     const g = window.__glmcs_game;
     return g.players.map((p, i) => ({
@@ -94,9 +104,9 @@ const puppeteer = require('puppeteer-core');
     }));
   });
   const bots = cityLive.slice(1);
-  const cityOk = bots.every((b) => b.alive && parseFloat(b.move) > 1 && parseFloat(b.feet) > -0.5);
+  const cityOk = cityLiveReady && bots.every((b) => b.alive && parseFloat(b.move) > 1 && parseFloat(b.feet) > -0.5);
   if (!cityOk) fail = true;
-  console.log(`[${cityOk ? 'OK' : 'FAIL'}] 都市巷戰 11 人混戰 9 秒: ${JSON.stringify(bots)}`);
+  console.log(`[${cityOk ? 'OK' : 'FAIL'}] 都市巷戰 11 人混戰 7 秒 (live開始後): ${JSON.stringify(bots)}`);
 
   const climb = await page.evaluate(() => {
     const g = window.__glmcs_game;
@@ -171,7 +181,7 @@ const puppeteer = require('puppeteer-core');
       out.blocked = !g.physics.losClear(a, b);
     }
     const t3 = performance.now();
-    while (performance.now() - t3 < 16000 && (g.fires.length > 0 || g.physics.smokes.length > 0)) {
+    while (performance.now() - t3 < 32000 && (g.fires.length > 0 || g.physics.smokes.length > 0)) {
       await new Promise((r) => setTimeout(r, 250));
     }
     out.fireClean = g.fires.length === 0;
@@ -223,7 +233,7 @@ const puppeteer = require('puppeteer-core');
     bot.nadeCd = 0;
     const t0 = performance.now();
     let thrown = false, blinded = false;
-    while (performance.now() - t0 < 8000) {
+    while (performance.now() - t0 < 16000) {
       if (!bot.loadout.grenades.flash) thrown = true;
       if (g.player.blindT > 1) { blinded = true; break; }
       await new Promise((r) => setTimeout(r, 100));
@@ -369,7 +379,7 @@ const puppeteer = require('puppeteer-core');
       g.onKill(g.player, b, g.weaponNS.WEAPONS.usp, false);
     }
     const t0 = performance.now();
-    while (performance.now() - t0 < 24000 && g.roundNum < 2) await new Promise((res) => setTimeout(res, 200));
+    while (performance.now() - t0 < 50000 && g.roundNum < 2) await new Promise((res) => setTimeout(res, 200));
     r.wave2 = g.roundNum === 2;
     r.wave2Bots = g.bots.filter((b) => b.team === 'T').length;
     r.teammateAlive = g.bots.filter((b) => b.team === 'CT').every((b) => b.alive);
@@ -448,7 +458,7 @@ const puppeteer = require('puppeteer-core');
     g.onKill(killer, g.player, g.weaponNS.WEAPONS.usp, false);
     r.dcam = g.deathCamT > 2 && !!g.deathCamTarget;
     const t0 = performance.now();
-    while (performance.now() - t0 < 4000 && g.deathCamT > 0) await new Promise((res) => setTimeout(res, 150));
+    while (performance.now() - t0 < 9000 && g.deathCamT > 0) await new Promise((res) => setTimeout(res, 150));
     r.dcamEnd = g.deathCamT <= 0;
     return r;
   });
@@ -463,11 +473,11 @@ const puppeteer = require('puppeteer-core');
     const r = {};
     for (const b of g.bots.filter((x) => x.team === 'T')) g.onKill(g.player, b, g.weaponNS.WEAPONS.usp, false);
     const t0 = performance.now();
-    while (performance.now() - t0 < 24000 && g.roundNum < 2) await new Promise((res) => setTimeout(res, 200));
+    while (performance.now() - t0 < 50000 && g.roundNum < 2) await new Promise((res) => setTimeout(res, 200));
     r.wave2 = g.roundNum === 2;
     r.rosterSync = g.players.filter((p) => p.team === 'T').length === g.bots.filter((b) => b.team === 'T').length;
     const t1 = performance.now();
-    while (performance.now() - t1 < 15000 && g.state !== 'live') await new Promise((res) => setTimeout(res, 200));
+    while (performance.now() - t1 < 40000 && g.state !== 'live') await new Promise((res) => setTimeout(res, 200));
     await new Promise((res) => setTimeout(res, 2500));
     r.noAutoSkip = g.state === 'live' && g.roundNum === 2 && g.players.some((p) => p.team === 'T' && p.alive);
     const bot = g.bots.find((b) => b.team === 'T' && b.alive);

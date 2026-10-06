@@ -63,6 +63,24 @@ export const THEMES = {
     wall: '#a8a89a', wallStreak: 'rgba(70,70,62,0.25)', wallBand: 'rgba(60,62,55,0.3)',
     crate: '#8a7448', crateLine: 'rgba(45,35,15,0.6)',
     metal: '#5e686e', concrete: '#98988c'
+  },
+  metro: {
+    skyTop: 0x141a24, skyBot: 0x2a3442,
+    sky: 0x232c3a, fogNear: 40, fogFar: 130,
+    light: { hemi: 0.85, sun: 0.5, sunColor: 0xcfe0f0, shadow: 52 },
+    floor: '#8d8d90', floorLine: 'rgba(50,52,56,0.45)', floorPatch: 'rgba(60,62,66,0.25)',
+    wall: '#9aa0a8', wallStreak: 'rgba(60,66,74,0.25)', wallBand: 'rgba(70,78,88,0.3)',
+    crate: '#6a6f76', crateLine: 'rgba(28,32,38,0.6)',
+    metal: '#4e565e', concrete: '#8f949a'
+  },
+  rail: {
+    skyTop: 0x6f7f96, skyBot: 0xd0b898,
+    sky: 0xb2a48e, fogNear: 48, fogFar: 160,
+    light: { hemi: 0.95, sun: 1.5, sunColor: 0xf0d8b0, shadow: 52 },
+    floor: '#9a8f80', floorLine: 'rgba(60,52,40,0.4)', floorPatch: 'rgba(52,46,36,0.2)',
+    wall: '#a09888', wallStreak: 'rgba(70,62,50,0.25)', wallBand: 'rgba(82,74,60,0.3)',
+    crate: '#7d6a45', crateLine: 'rgba(42,34,18,0.6)',
+    metal: '#665e54', concrete: '#9a9488'
   }
 };
 

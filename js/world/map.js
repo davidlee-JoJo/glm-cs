@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CELL, WALKABLE } from './maps.js';
 import { buildMaterials, boxMesh, siteDecalTex, THEMES } from './materials.js';
-import { decorateMap } from './props.js';
+import { decorateMap, loadTrain } from './props.js';
 
 const WALL_H = 4.2;
 const CRATE_H = 1.0;
@@ -116,12 +116,129 @@ export class GameMap {
   }
 
   _buildFloor() {
-    const size = this.cols * CELL;
-    const geo = new THREE.PlaneGeometry(size, size);
+    const w = this.cols * CELL, d = this.rows * CELL;
+    const geo = new THREE.PlaneGeometry(w, d);
     const floor = this._track(new THREE.Mesh(geo, this.mats.floor));
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
-    this.physics.addSolid(0, -0.25, 0, size, 0.5, size, 'floor');
+    this.physics.addSolid(0, -0.25, 0, w, 0.5, d, 'floor');
+    this._buildRails();
+  }
+
+  _buildRails() {
+    const L = this.def.layout;
+    if (!L.some((r) => r.includes('R'))) return;
+    const railMat = new THREE.MeshLambertMaterial({ color: 0x5a5e64 });
+    const sleepMat = new THREE.MeshLambertMaterial({ color: 0x3d3630 });
+    const ballastMat = new THREE.MeshLambertMaterial({ color: 0x6a645c });
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        if (L[r][c] !== 'R') continue;
+        const horiz = (L[r][c - 1] === 'R' || L[r][c + 1] === 'R');
+        const x = this.cellToWorldX(c), z = this.cellToWorldZ(r);
+        const ballast = boxMesh(ballastMat, CELL, 0.06, CELL, x, 0.03, z);
+        ballast.castShadow = false;
+        this._track(ballast);
+        const sleeper = boxMesh(sleepMat, horiz ? 0.5 : 2.0, 0.09, horiz ? 2.0 : 0.5, x, 0.08, z);
+        sleeper.castShadow = false;
+        this._track(sleeper);
+        for (const off of [-0.72, 0.72]) {
+          const rail = boxMesh(railMat, horiz ? CELL : 0.13, 0.14, horiz ? 0.13 : CELL,
+            x + (horiz ? 0 : off), 0.17, z + (horiz ? off : 0));
+          this._track(rail);
+        }
+      }
+    }
+    this._buildTrains();
+    this._buildCrossings();
+  }
+
+  _buildTrains() {
+    for (const t of this.def.train || []) {
+      const z = this.cellToWorldZ(t.r);
+      const x0 = (t.c0 - this.cols / 2) * CELL, x1 = (t.c1 + 1 - this.cols / 2) * CELL;
+      const cx = (x0 + x1) / 2, span = x1 - x0;
+      const mk = (scene) => {
+        const box = new THREE.Box3().setFromObject(scene);
+        const size = box.getSize(new THREE.Vector3());
+        const s = 3.0 / Math.max(size.y, 0.001);
+        scene.scale.setScalar(s);
+        const box2 = new THREE.Box3().setFromObject(scene);
+        const size2 = box2.getSize(new THREE.Vector3());
+        const c2 = box2.getCenter(new THREE.Vector3());
+        const wrap = new THREE.Group();
+        wrap.add(scene);
+        scene.position.set(-c2.x, -box2.min.y + 0.14, -c2.z);
+        wrap.position.set(cx, 0, z);
+        wrap.rotation.y = 0;
+        wrap.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+        this._track(wrap);
+        const w = Math.min(size2.x, span), d = Math.max(2.2, Math.min(size2.z, 5));
+        this.physics.addSolid(cx, 1.5, z, w, 3.0, d, 'train');
+        this.rects.push({ x0: cx - w / 2, x1: cx + w / 2, z0: z - d / 2, z1: z + d / 2 });
+        for (let c = t.c0; c <= t.c1; c++) {
+          for (let rr = Math.floor(this.rows / 2 + (z - d / 2) / CELL); rr <= Math.floor(this.rows / 2 + (z + d / 2) / CELL); rr++) {
+            if (this.walk[rr] && this.walk[rr][c] !== undefined) this.walk[rr][c] = false;
+          }
+        }
+      };
+      loadTrain().then((sc) => {
+        if (this.disposed) return;
+        mk(sc || this._fallbackTrain(span));
+      }).catch(() => { if (!this.disposed) mk(this._fallbackTrain(span)); });
+    }
+  }
+
+  _fallbackTrain(span) {
+    const g = new THREE.Group();
+    const body = boxMesh(this.mats.metal, Math.min(span, 24), 2.4, 2.8, 0, 1.4, 0);
+    g.add(body);
+    const stripe = boxMesh(new THREE.MeshLambertMaterial({ color: 0xc9d2d8 }), Math.min(span, 24) - 0.4, 0.5, 2.86, 0, 1.9, 0);
+    g.add(stripe);
+    return g;
+  }
+
+  _buildCrossings() {
+    if (!this.def.crossings) return;
+    const stripeTex = (() => {
+      const c = document.createElement('canvas');
+      c.width = 128; c.height = 32;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#e8e4dc';
+      ctx.fillRect(0, 0, 128, 32);
+      ctx.fillStyle = '#d04830';
+      for (let i = -1; i < 8; i++) {
+        ctx.save();
+        ctx.translate(i * 20, 0);
+        ctx.transform(1, 0, -0.55, 1, 0, 0);
+        ctx.fillRect(0, 0, 10, 32);
+        ctx.restore();
+      }
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    })();
+    const armMat = new THREE.MeshLambertMaterial({ map: stripeTex });
+    const postMat = new THREE.MeshLambertMaterial({ color: 0x8a8d92 });
+    for (const cr of this.def.crossings) {
+      const z = this.cellToWorldZ(cr.r);
+      const x0 = (cr.c0 - this.cols / 2) * CELL, x1 = (cr.c1 + 1 - this.cols / 2) * CELL;
+      const w = x1 - x0, cx = (x0 + x1) / 2;
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(w, 0.14, 0.14), armMat);
+      arm.position.set(cx, 0.82, z);
+      arm.rotation.z = 0.12;
+      arm.castShadow = true;
+      this._track(arm);
+      for (const px of [x0 + 0.15, x1 - 0.15]) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 8), postMat);
+        post.position.set(px, 0.55, z);
+        post.castShadow = true;
+        this._track(post);
+        const light = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), new THREE.MeshBasicMaterial({ color: 0xd03828 }));
+        light.position.set(px, 1.18, z);
+        this._track(light);
+      }
+    }
   }
 
   _buildCells() {
@@ -197,12 +314,13 @@ export class GameMap {
 
   _buildIndoor() {
     for (const z of this.def.indoor || []) {
+      const zh = z.h || CEIL_H;
       const w = (z.c1 - z.c0 + 1) * CELL, d = (z.r1 - z.r0 + 1) * CELL;
       const x = (z.c0 + (z.c1 - z.c0 + 1) / 2 - this.cols / 2) * CELL;
       const zz = (z.r0 + (z.r1 - z.r0 + 1) / 2 - this.rows / 2) * CELL;
-      const ceil = boxMesh(this.mats.wall, w, CEIL_TH, d, x, CEIL_H + CEIL_TH / 2, zz);
+      const ceil = boxMesh(this.mats.wall, w, CEIL_TH, d, x, zh + CEIL_TH / 2, zz);
       this._track(ceil);
-      this.physics.addSolid(x, CEIL_H + CEIL_TH / 2, zz, w, CEIL_TH, d, 'ceiling');
+      this.physics.addSolid(x, zh + CEIL_TH / 2, zz, w, CEIL_TH, d, 'ceiling');
       this.rects.push({ x0: x - w / 2, x1: x + w / 2, z0: zz - d / 2, z1: zz + d / 2 });
     }
   }

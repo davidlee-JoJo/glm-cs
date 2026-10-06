@@ -35,16 +35,16 @@ export class HUD {
 
   buildMinimapBase(map) {
     const ctx = this.base.getContext('2d');
-    const S = 168, SC = S / (map.cols * 2);
+    const S = 168, SCX = S / (map.cols * 2), SCZ = S / (map.rows * 2);
     ctx.fillStyle = 'rgba(20,24,30,0.9)';
     ctx.fillRect(0, 0, S, S);
-    const tx = (x) => (x + map.cols) * SC;
-    const tz = (z) => (z + map.rows) * SC;
+    const tx = (x) => (x + map.cols) * SCX;
+    const tz = (z) => (z + map.rows) * SCZ;
     ctx.fillStyle = 'rgba(150,140,110,0.25)';
-    ctx.fillRect(tx(-32), tz(-32), 64 * SC, 64 * SC);
+    ctx.fillRect(tx(-map.cols), tz(-map.rows), map.cols * 2 * SCX, map.rows * 2 * SCZ);
     ctx.fillStyle = 'rgba(90,80,60,0.85)';
     for (const r of map.rects) {
-      ctx.fillRect(tx(r.x0), tz(r.z0), (r.x1 - r.x0) * SC, (r.z1 - r.z0) * SC);
+      ctx.fillRect(tx(r.x0), tz(r.z0), (r.x1 - r.x0) * SCX, (r.z1 - r.z0) * SCZ);
     }
     ctx.font = 'bold 13px Consolas';
     ctx.fillStyle = 'rgba(232,180,60,0.9)';
@@ -52,7 +52,7 @@ export class HUD {
     ctx.fillText('A', tx(map.siteA.center.x), tz(map.siteA.center.z) + 5);
     ctx.fillText('B', tx(map.siteB.center.x), tz(map.siteB.center.z) + 5);
     this.minimapBase = this.base;
-    this._SC = SC; this._tx = tx; this._tz = tz;
+    this._SC = SCX; this._SCZ = SCZ; this._tx = tx; this._tz = tz;
   }
 
   update(dt) {

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Body } from '../core/physics.js';
 import { WeaponInst, fireWeapon, startReload, updateWeapon } from '../player/weapons.js';
+import { buildCharacter } from '../player/characters.js';
 
 const TEAM_COLORS = {
   T: { cloth: 0xb08d57, vest: 0x7a5c30, head: 0xd9b38c },
@@ -123,6 +124,29 @@ export class Bot {
     this.legL = m.legL;
     this.legR = m.legR;
     game.engine.scene.add(this.model);
+    this.mixer = null;
+    this.actions = null;
+    this.curClip = '';
+    buildCharacter(team).then((ch) => {
+      if (!ch || this.removed) return;
+      if (!this.alive || this.deathT >= 0) return;
+      const wrapper = new THREE.Group();
+      wrapper.add(ch.obj);
+      const px = this.model.position.clone();
+      const py = this.model.rotation.y;
+      game.engine.scene.remove(this.model);
+      this.model = wrapper;
+      this.model.position.copy(px);
+      this.model.rotation.y = py;
+      game.engine.scene.add(this.model);
+      this.legL = null;
+      this.legR = null;
+      const mixer = new THREE.AnimationMixer(ch.obj);
+      const mk = (clip) => (clip ? mixer.clipAction(clip) : null);
+      this.actions = { idle: mk(ch.clips.idle), run: mk(ch.clips.run), walk: mk(ch.clips.walk) };
+      this.mixer = mixer;
+      for (const k of ['idle', 'walk', 'run']) if (this.actions[k]) this.actions[k].play();
+    }).catch(() => {});
     this.resetForRound(team === 'T' ? game.map.spawnT[0] : game.map.spawnCT[0], false);
   }
 
@@ -569,10 +593,22 @@ export class Bot {
     this.yaw += dy * Math.min(1, dt * 12);
     this.model.rotation.y = this.yaw;
     const hsp = Math.hypot(b.vel.x, b.vel.z);
+    if (this.mixer) {
+      this.mixer.update(dt);
+      const want = hsp < 0.35 ? 'idle' : hsp < 2.6 ? 'walk' : 'run';
+      if (want !== this.curClip && this.actions && this.actions[want]) {
+        const from = this.actions[this.curClip];
+        const to = this.actions[want];
+        if (from) from.fadeOut(0.22);
+        to.reset().fadeIn(0.22).play();
+        this.curClip = want;
+      }
+      return;
+    }
     this.legPhase += hsp * dt * 2.6;
     const swing = Math.sin(this.legPhase) * Math.min(1, hsp / 3) * 0.55;
-    this.legL.rotation.x = swing;
-    this.legR.rotation.x = -swing;
+    if (this.legL) this.legL.rotation.x = swing;
+    if (this.legR) this.legR.rotation.x = -swing;
   }
 
   alert(pos) {
@@ -610,6 +646,7 @@ export class Bot {
   }
 
   remove() {
+    this.removed = true;
     this.game.engine.scene.remove(this.model);
     this.game.physics.removeBody(this.body);
   }

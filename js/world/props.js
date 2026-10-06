@@ -14,17 +14,21 @@ export const PROPS = {
   bench: { url: PM + 'transit/Bench_01.glb', h: 0.55 },
   plant: { url: PM + 'transit/Plant_02_Art.glb', h: 0.95 },
   ebox: { url: PM + 'tomb-chaser-2/ElectricBox01_Art.glb', h: 1.1 },
+  lamp: { url: PM + 'transit/Tower_Station_Light_Art.glb', h: 3.3 },
+  fence: { url: PM + 'transit/Tower_Ornamental_Fence_Art.glb', h: 1.1 },
   cone: { url: 'https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Assets@main/Models/TrafficCone/glTF-Binary/TrafficCone.glb', h: 0.55 }
 };
 
 export const MAP_PROPS = {
-  dust: ['barrel', 'palm', 'jar', 'cart', 'rock'],
-  inferno: ['barrel', 'jar', 'cart', 'grass', 'plant'],
-  nuke: ['barrel', 'ebox', 'bench', 'cone', 'plant'],
+  dust: ['barrel', 'palm', 'jar', 'cart', 'rock', 'cone'],
+  inferno: ['barrel', 'jar', 'cart', 'grass', 'plant', 'lamp'],
+  nuke: ['barrel', 'ebox', 'bench', 'cone', 'plant', 'lamp'],
   snow: ['barrel', 'rock', 'grass', 'cone', 'ebox'],
-  fortress: ['barrel', 'jar', 'cart', 'grass', 'rock'],
-  harbor: ['barrel', 'ebox', 'bench', 'torch', 'cone'],
-  city: ['cone', 'bench', 'plant', 'ebox', 'barrel']
+  fortress: ['barrel', 'jar', 'cart', 'grass', 'rock', 'torch'],
+  harbor: ['barrel', 'ebox', 'bench', 'torch', 'cone', 'lamp'],
+  city: ['cone', 'bench', 'plant', 'ebox', 'barrel', 'lamp'],
+  metro: ['bench', 'cone', 'ebox', 'barrel', 'plant', 'fence'],
+  rail: ['barrel', 'cone', 'ebox', 'bench', 'lamp', 'fence', 'rock']
 };
 
 const TOP_PROPS = {
@@ -34,7 +38,9 @@ const TOP_PROPS = {
   snow: ['rock', 'barrel'],
   fortress: ['jar', 'barrel'],
   harbor: ['barrel', 'cone'],
-  city: ['cone', 'plant']
+  city: ['cone', 'plant'],
+  metro: ['cone', 'barrel'],
+  rail: ['barrel', 'cone', 'ebox']
 };
 
 const TOP_H = { X: 1.0, '1': 0.45, '2': 0.9, '3': 1.35, '4': 1.8, P: 2.0 };
@@ -48,6 +54,17 @@ function loadModel(key) {
     }));
   }
   return cache.get(key);
+}
+
+const TRAIN_URL = PM + 'transit/Train_01_Art.glb';
+let trainPromise = null;
+export function loadTrain() {
+  if (!trainPromise) {
+    trainPromise = new Promise((resolve) => {
+      new GLTFLoader().load(TRAIN_URL, (g) => resolve(g.scene), undefined, () => resolve(null));
+    });
+  }
+  return trainPromise;
 }
 
 function hashStr(s) {
@@ -142,8 +159,8 @@ export async function decorateMap(map, key) {
   const groundKeys = keys.filter((k) => k !== 'torch');
   let ng = 0;
   for (const cell of edgeCells) {
-    if (ng >= 26) break;
-    if (rng() > 0.13) continue;
+    if (ng >= 40) break;
+    if (rng() > 0.18) continue;
     const k = groundKeys[Math.floor(rng() * groundKeys.length)];
     const [dc, dr] = cell.dirs[Math.floor(rng() * cell.dirs.length)];
     const tangent = Math.atan2(dc, dr) + Math.PI / 2;
@@ -155,8 +172,8 @@ export async function decorateMap(map, key) {
   const topKeys = TOP_PROPS[key] ? TOP_PROPS[key].filter((k) => loaded[k]) : [];
   let nt = 0;
   for (const cell of topCells) {
-    if (nt >= 10 || !topKeys.length) break;
-    if (rng() > 0.28) continue;
+    if (nt >= 16 || !topKeys.length) break;
+    if (rng() > 0.36) continue;
     place(topKeys[Math.floor(rng() * topKeys.length)],
       map.cellToWorldX(cell.c), cell.h, map.cellToWorldZ(cell.r), rng() * Math.PI * 2);
     nt++;

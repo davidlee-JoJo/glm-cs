@@ -1158,7 +1158,7 @@ export class Game {
       if (active) {
         this.acc += frameDt * this.timeScale;
         let steps = 0;
-        while (this.acc >= FIXED && steps < 6) {
+        while (this.acc >= FIXED && steps < 14) {
           this.simStep(FIXED);
           this.acc -= FIXED;
           steps++;
