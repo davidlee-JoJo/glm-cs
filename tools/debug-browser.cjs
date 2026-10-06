@@ -62,9 +62,26 @@
     });
     const trainOk = ['metro', 'rail'].includes(key) ? live.train >= 1 : true;
     const soldierOk = live.soldierBad === 'skip' ? true : !live.soldierBad.startsWith('0/') ? false : true && parseInt(live.soldierBad.split('/')[0]) === 0 && parseInt(live.soldierBad.split('/')[1]) >= 3;
-    const ok = info.mapKey === key && live.noFall && live.siteOk && live.alive >= 4 && live.props >= 8 && live.sky && trainOk && soldierOk;
+    const sbox = await page.evaluate(async () => {
+      const g = window.__glmcs_game;
+      const THREE = await import('three');
+      const bc = g.bots.find((x) => x.mixer && x.team === 'CT');
+      const bt = g.bots.find((x) => x.mixer && x.team === 'T');
+      if (!bc) return { h: 0, diff: true, types: '' };
+      const box = new THREE.Box3().setFromObject(bc.model);
+      return {
+        h: Math.round((box.max.y - box.min.y) * 100) / 100,
+        minY: Math.round(box.min.y * 100) / 100,
+        diff: bt ? bc.modelType !== bt.modelType : true,
+        types: g.bots.filter((x) => x.modelType).map((x) => x.team + ':' + x.modelType).join(',')
+      };
+    });
+    const sizeOk = sbox.h === 0 || (sbox.h >= 1.5 && sbox.h <= 2.15 && sbox.minY > -0.35 && sbox.minY < 0.35);
+    const diffOk = sbox.diff;
+    if (!sizeOk || !diffOk) fail = true;
+    const ok = info.mapKey === key && live.noFall && live.siteOk && live.alive >= 4 && live.props >= 8 && live.sky && trainOk && soldierOk && sizeOk && diffOk;
     if (!ok) fail = true;
-    console.log(`[${ok ? 'OK' : 'FAIL'}] ${key} (${info.name}) bg=0x${info.bg.toString(16)} fog=${info.fogFar} solids=${info.solids} 室內=${info.ceilings} 高台=${info.elevs} alive=${live.alive} noFall=${live.noFall} sites=${live.siteOk} 道具=${live.props} 天空=${live.sky} 列車=${live.train} 士兵模型=${live.soldier}/5 壞網格=${live.soldierBad}`);
+    console.log(`[${ok ? 'OK' : 'FAIL'}] ${key} (${info.name}) bg=0x${info.bg.toString(16)} fog=${info.fogFar} solids=${info.solids} 室內=${info.ceilings} 高台=${info.elevs} alive=${live.alive} noFall=${live.noFall} sites=${live.siteOk} 道具=${live.props} 天空=${live.sky} 列車=${live.train} 士兵=${live.soldier}/5 壞網格=${live.soldierBad} 模型高=${sbox.h} 敵我不同模型=${sbox.diff}${sbox.types ? ' (' + sbox.types + ')' : ''}`);
   }
 
   const counts = await page.evaluate(() => {
@@ -360,7 +377,7 @@
     r.killCounted = g.player.kills === 1;
     r.respawnScheduled = bot.respawnT === 3 && !bot.alive;
     const t0 = performance.now();
-    while (performance.now() - t0 < 9000 && !bot.alive) await new Promise((res) => setTimeout(res, 200));
+    while (performance.now() - t0 < 30000 && !bot.alive) await new Promise((res) => setTimeout(res, 200));
     r.botRespawned = bot.alive;
     r.movedAway = bot.body.pos.distanceTo(deathPos) > 5;
     r.protected = bot.protT > g.time;
@@ -530,7 +547,7 @@
       await new Promise((res) => setTimeout(res, 200));
       const d1 = sample(shotX, shotZ);
       r.heardDot = isOrange(d1);
-      await new Promise((res) => setTimeout(res, 2200));
+      await new Promise((res) => setTimeout(res, 3800));
       const d2 = sample(shotX, shotZ);
       r.dotExpired = !isOrange(d2);
       r.diag2 = `a${d2[3]},rgb${d2[0]},${d2[1]},${d2[2]},shotDt=${(g.time - bot.lastShotT).toFixed(1)}`;

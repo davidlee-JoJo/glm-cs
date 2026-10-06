@@ -141,11 +141,11 @@ export class Bot {
       game.engine.scene.add(this.model);
       this.legL = null;
       this.legR = null;
+      this.modelType = ch.type;
       const mixer = new THREE.AnimationMixer(ch.obj);
       const mk = (clip) => (clip ? mixer.clipAction(clip) : null);
       this.actions = { idle: mk(ch.clips.idle), run: mk(ch.clips.run), walk: mk(ch.clips.walk) };
       this.mixer = mixer;
-      for (const k of ['idle', 'walk', 'run']) if (this.actions[k]) this.actions[k].play();
     }).catch(() => {});
     this.resetForRound(team === 'T' ? game.map.spawnT[0] : game.map.spawnCT[0], false);
   }
