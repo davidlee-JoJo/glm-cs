@@ -53,12 +53,17 @@ export async function buildCharacter(team) {
   obj.traverse((o) => {
     if (o.isMesh) {
       o.castShadow = true;
-      const mats = Array.isArray(o.material) ? o.material : [o.material];
-      o.material = mats.map((m) => {
-        const c = m.clone();
+      if (Array.isArray(o.material)) {
+        o.material = o.material.map((m) => {
+          const c = m.clone();
+          c.color = c.color.clone().lerp(tint, 0.45);
+          return c;
+        });
+      } else {
+        const c = o.material.clone();
         c.color = c.color.clone().lerp(tint, 0.45);
-        return c;
-      });
+        o.material = c;
+      }
     }
   });
   const gun = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.11, 0.62), new THREE.MeshLambertMaterial({ color: 0x1c1f24 }));

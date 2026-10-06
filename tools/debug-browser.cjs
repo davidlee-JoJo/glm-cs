@@ -45,13 +45,26 @@
         sky: g.map.meshes.some((m) => m.isMesh && m.material.side === 1),
         train: g.physics.solids.filter((s) => s.tag === 'train').length,
         trainBlocked: g.bots.every((b) => b.body.pos.y > -0.5) && g.bots.length === 5,
-        soldier: g.bots.filter((b) => b.mixer).length
+        soldier: g.bots.filter((b) => b.mixer).length,
+        soldierBad: (() => {
+          const b = g.bots.find((x) => x.mixer);
+          if (!b) return 'skip';
+          let bad = 0, meshes = 0;
+          b.model.traverse((o) => {
+            if (o.isMesh) {
+              meshes++;
+              if (Array.isArray(o.material) && o.geometry.groups.length === 0) bad++;
+            }
+          });
+          return bad + '/' + meshes;
+        })()
       };
     });
     const trainOk = ['metro', 'rail'].includes(key) ? live.train >= 1 : true;
-    const ok = info.mapKey === key && live.noFall && live.siteOk && live.alive >= 4 && live.props >= 8 && live.sky && trainOk;
+    const soldierOk = live.soldierBad === 'skip' ? true : !live.soldierBad.startsWith('0/') ? false : true && parseInt(live.soldierBad.split('/')[0]) === 0 && parseInt(live.soldierBad.split('/')[1]) >= 3;
+    const ok = info.mapKey === key && live.noFall && live.siteOk && live.alive >= 4 && live.props >= 8 && live.sky && trainOk && soldierOk;
     if (!ok) fail = true;
-    console.log(`[${ok ? 'OK' : 'FAIL'}] ${key} (${info.name}) bg=0x${info.bg.toString(16)} fog=${info.fogFar} solids=${info.solids} 室內=${info.ceilings} 高台=${info.elevs} alive=${live.alive} noFall=${live.noFall} sites=${live.siteOk} 道具=${live.props} 天空=${live.sky} 列車=${live.train} 士兵模型=${live.soldier}/5`);
+    console.log(`[${ok ? 'OK' : 'FAIL'}] ${key} (${info.name}) bg=0x${info.bg.toString(16)} fog=${info.fogFar} solids=${info.solids} 室內=${info.ceilings} 高台=${info.elevs} alive=${live.alive} noFall=${live.noFall} sites=${live.siteOk} 道具=${live.props} 天空=${live.sky} 列車=${live.train} 士兵模型=${live.soldier}/5 壞網格=${live.soldierBad}`);
   }
 
   const counts = await page.evaluate(() => {
@@ -407,8 +420,10 @@
     ct.yaw = Math.atan2(-(t.body.pos.x - ct.body.pos.x), -(t.body.pos.z - ct.body.pos.z));
     ct.targetYaw = ct.yaw;
     ct.radioCd = 0;
+    const tw = performance.now();
+    while (performance.now() - tw < 30000 && g.state !== 'live') await new Promise((res) => setTimeout(res, 200));
     const t0 = performance.now();
-    while (performance.now() - t0 < 5000 && !(ct.state === 'engage' && ct.crouching)) {
+    while (performance.now() - t0 < 12000 && !(ct.state === 'engage' && ct.crouching)) {
       await new Promise((res) => setTimeout(res, 150));
     }
     r.engage = ct.state === 'engage';
